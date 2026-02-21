@@ -261,6 +261,7 @@ function renderTierDistribution() {
           <div class="tier-range">${tier.min}${tier.max===Infinity?'+':('–'+tier.max)} Sunrays</div>
           <div class="tier-count"><strong>${holders.length}</strong> holders</div>
           ${topUsers.length > 0 ? `<div class="tier-top-users">${topUsers.map(u=>`<div class="tier-user" title="${escHtml(u.name)}">⚡ ${escHtml(u.name)}</div>`).join('')}</div>` : ''}
+          ${holders.length > 0 ? `<button class="tier-show-more-btn" onclick="openTierHoldersModal('${escHtml(tier.key).replace(/'/g,"\\'")}','${tier.color}')">Show All Holders</button>` : ''}
         </div>
       </div>
     `;
@@ -269,6 +270,9 @@ function renderTierDistribution() {
   const duplicatedCards = cardsHtml;
   carousel.innerHTML = cardsHtml + duplicatedCards;
   
+  // Set up interactive carousel after populating
+  setupCarouselInteraction();
+
   const newcomerHolders = allUsers.filter(u => u.rays >= newcomer.min && u.rays <= newcomer.max);
   document.getElementById('newcomerBanner').innerHTML = `
     <div class="newcomer-banner">
@@ -415,12 +419,28 @@ function renderWeeklyWinners() {
   
   let html = '<div class="ww-categories">';
   Object.entries(cats).sort(([a],[b]) => a.localeCompare(b)).forEach(([cat, winners]) => {
+    const catLower = cat.toLowerCase();
+    let catType = 'other';
+    if (catLower.includes('arab') || catLower.includes('bangladesh') || catLower.includes('nigeria') || 
+        catLower.includes('vietnam') || catLower.includes('india') || catLower.includes('turkey') ||
+        catLower.includes('regional') || catLower.includes('local')) {
+      catType = 'regional';
+    } else if (catLower.includes('poker') || catLower.includes('chess') || catLower.includes('game')) {
+      catType = 'gaming';
+    } else if (catLower.includes('quiz') || catLower.includes('content')) {
+      catType = 'content';
+    } else if (catLower.includes('mvp') || catLower.includes('community')) {
+      catType = 'community';
+    } else if (catLower.includes('signal') || catLower.includes('sprint')) {
+      catType = 'signal';
+    }
+
     html += `
-      <div class="ww-cat">
+      <div class="ww-cat" data-category="${catType}">
         <div class="ww-cat-title">${escHtml(cat)}</div>
         <div class="ww-grid">
           ${winners.map(w => `
-            <span class="ww-winner-tag">
+            <span class="ww-winner-tag" data-type="${escHtml(w.type || 'Other')}">
               ☀️ <a href="https://discord.com/users/${escHtml(w.discord_name)}" target="_blank" rel="noopener">${escHtml(w.discord_name)}</a>
               ${w.sun_rays > 1 ? `<span class="ww-rays">+${w.sun_rays}</span>` : ''}
             </span>
@@ -587,18 +607,43 @@ function renderUserCard(user) {
   });
   
   if (userWins.length > 0) {
+    // Group by type for summary counts
     const catCounts = {};
     userWins.forEach(w => {
       const t = w.type ? w.type.trim() : 'Other';
       catCounts[t] = (catCounts[t] || 0) + 1;
     });
-    const topCats = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    // ALL categories sorted by count desc — no slice
+    const allCats = Object.entries(catCounts).sort((a,b) => b[1]-a[1]);
+    const totalRays = userWins.reduce((s, w) => s + (w.sun_rays || 1), 0);
+
+    // Sort individual wins newest-first (by date string, best effort)
+    const sortedWins = [...userWins].sort((a,b) => {
+      const da = parseFloat(a.date) || 0;
+      const db = parseFloat(b.date) || 0;
+      return db - da;
+    });
+
+    const summaryBadges = allCats.map(([cat,n]) =>
+      `<span class="activity-tag">${escHtml(cat)} <span style="color:var(--orange)">×${n}</span></span>`
+    ).join('');
+
+    const detailRows = sortedWins.map(w =>
+      `<div class="activity-win-row">
+        <span class="activity-win-type">☀️ ${escHtml(w.type || 'Other')}</span>
+        ${w.date ? `<span class="activity-win-date">${escHtml(w.date)}</span>` : ''}
+        ${w.sun_rays > 1 ? `<span class="activity-win-rays">+${w.sun_rays} ☀️</span>` : ''}
+      </div>`
+    ).join('');
+
     activityHtml = `
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Activity Breakdown</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${topCats.map(([cat,n]) => `<span style="font-size:11px;background:var(--bg2);border:1px solid var(--border);padding:3px 10px;border-radius:6px;transition:all 0.2s ease" onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'">${escHtml(cat)} <span style="color:var(--orange)">×${n}</span></span>`).join('')}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em">Activity Breakdown</div>
+          <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">${userWins.length} events · ${totalRays} ☀️</div>
         </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${summaryBadges}</div>
+        <div class="activity-breakdown-scroll">${detailRows}</div>
       </div>
     `;
   } else {
@@ -813,21 +858,185 @@ function shareCard() {
 }
 
 // ============================================================
-// UTILS
+// TIER HOLDERS MODAL
 // ============================================================
+function openTierHoldersModal(tierKey, color) {
+  const tier = TIERS.find(t => t.key === tierKey);
+  if (!tier) return;
+
+  const holders = allUsers.filter(u => u.rays >= tier.min && u.rays <= tier.max);
+
+  document.getElementById('tierHoldersTitle').textContent = tier.name + ' Holders';
+  document.getElementById('tierHoldersTitle').style.color = color || 'var(--white)';
+  document.getElementById('tierHoldersCount').textContent = holders.length + ' member' + (holders.length !== 1 ? 's' : '');
+
+  const list = document.getElementById('tierHoldersList');
+  if (holders.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:14px">No holders yet</div>';
+  } else {
+    list.innerHTML = holders.map((u, i) => `
+      <div class="tier-holder-item">
+        <span class="tier-holder-rank">#${u.rank}</span>
+        <span class="tier-holder-name">⚡ ${escHtml(u.name)}</span>
+        <span class="tier-holder-rays">☀️ ${u.rays}</span>
+      </div>
+    `).join('');
+  }
+
+  const overlay = document.getElementById('tierHoldersModal');
+  overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeTierHoldersModal(event) {
+  if (!event || event.target === document.getElementById('tierHoldersModal')) {
+    document.getElementById('tierHoldersModal').classList.remove('active');
+    document.body.style.overflow = '';
+  }
+}
+
+
 function escHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// ============================================================
+// CAROUSEL - DRAG/TOUCH INTERACTION
+// ============================================================
+let carouselAnimId = null;
+let carouselTranslate = 0;
+let carouselIsPaused = false;
+let carouselIsDragging = false;
+let carouselDragStartX = 0;
+let carouselDragStartTranslate = 0;
+
+function setupCarouselInteraction() {
+  const carousel = document.getElementById('tierCarousel');
+  if (!carousel) return;
+
+  // Cancel any previous animation
+  if (carouselAnimId) cancelAnimationFrame(carouselAnimId);
+
+  // Remove CSS animation — we drive via JS
+  carousel.style.animation = 'none';
+  carousel.style.transition = 'none';
+
+  const speed = 0.5; // px per frame
+
+  function getHalfWidth() {
+    return carousel.scrollWidth / 2;
+  }
+
+  function tick() {
+    if (!carouselIsPaused && !carouselIsDragging) {
+      carouselTranslate -= speed;
+      const hw = getHalfWidth();
+      if (hw > 0 && Math.abs(carouselTranslate) >= hw) {
+        carouselTranslate += hw;
+      }
+    }
+    carousel.style.transform = `translateX(${carouselTranslate}px)`;
+    carouselAnimId = requestAnimationFrame(tick);
+  }
+
+  carouselTranslate = 0;
+  carouselAnimId = requestAnimationFrame(tick);
+
+  let resumeTimer = null;
+
+  function onDragStart(x) {
+    carouselIsDragging = true;
+    carouselDragStartX = x;
+    carouselDragStartTranslate = carouselTranslate;
+    carousel.classList.add('is-dragging');
+    clearTimeout(resumeTimer);
+  }
+
+  function onDragMove(x) {
+    if (!carouselIsDragging) return;
+    carouselTranslate = carouselDragStartTranslate + (x - carouselDragStartX);
+  }
+
+  function onDragEnd() {
+    if (!carouselIsDragging) return;
+    carouselIsDragging = false;
+    carousel.classList.remove('is-dragging');
+    resumeTimer = setTimeout(() => { carouselIsPaused = false; }, 800);
+  }
+
+  // Pause on hover (desktop only)
+  carousel.addEventListener('mouseenter', () => {
+    if (!carouselIsDragging) {
+      carouselIsPaused = true;
+      clearTimeout(resumeTimer);
+    }
+  });
+  carousel.addEventListener('mouseleave', () => {
+    if (!carouselIsDragging) {
+      resumeTimer = setTimeout(() => { carouselIsPaused = false; }, 200);
+    }
+  });
+
+  // Mouse drag
+  carousel.addEventListener('mousedown', e => {
+    e.preventDefault();
+    onDragStart(e.clientX);
+  });
+  window.addEventListener('mousemove', e => {
+    if (carouselIsDragging) onDragMove(e.clientX);
+  });
+  window.addEventListener('mouseup', onDragEnd);
+
+  // Touch drag
+  carousel.addEventListener('touchstart', e => {
+    onDragStart(e.touches[0].clientX);
+  }, { passive: true });
+  carousel.addEventListener('touchmove', e => {
+    if (carouselIsDragging) onDragMove(e.touches[0].clientX);
+  }, { passive: true });
+  carousel.addEventListener('touchend', onDragEnd);
+}
+
 function toggleNav() {
-  document.getElementById('navLinks').classList.toggle('open');
+  const nav = document.getElementById('navLinks');
+  const toggle = document.querySelector('.nav-toggle');
+  nav.classList.toggle('open');
+  toggle.classList.toggle('active');
+  if (nav.classList.contains('open')) {
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.body.style.overflow = '';
+  }
 }
 
 function closeNav() {
-  document.getElementById('navLinks').classList.remove('open');
+  const nav = document.getElementById('navLinks');
+  const toggle = document.querySelector('.nav-toggle');
+  nav.classList.remove('open');
+  if (toggle) toggle.classList.remove('active');
+  document.body.style.overflow = '';
 }
 
 // ============================================================
 // START
 // ============================================================
+// Close nav when clicking outside
+document.addEventListener('click', (e) => {
+  const nav = document.getElementById('navLinks');
+  const toggle = document.querySelector('.nav-toggle');
+  if (nav && nav.classList.contains('open') && 
+      !nav.contains(e.target) && 
+      !toggle.contains(e.target)) {
+    closeNav();
+  }
+});
+
+// Close nav on escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeNav();
+    closeTierHoldersModal();
+  }
+});
+
 document.addEventListener('DOMContentLoaded', init);
