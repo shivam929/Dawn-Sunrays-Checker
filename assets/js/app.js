@@ -397,7 +397,7 @@ function renderWeeklyWinners() {
   if (currentDate && weekStart && weekEnd) {
     const weekOfText = `Week of ${formatDateWithOrdinal(currentDate)}`;
     const rangeText = `${formatDateShort(weekStart)} → ${formatDateShort(weekEnd)}`;
-    document.getElementById('weekDateRange').innerHTML = `<div style="font-size:14px;color:var(--white);margin-bottom:4px">${weekOfText}</div><div style="font-size:12px;color:var(--muted)">${rangeText}</div>`;
+    document.getElementById('weekDateRange').innerHTML = `<div style="font-size:17px;font-weight:500;color:#d0ccc7;font-family:'Outfit',sans-serif;letter-spacing:0">${weekOfText}</div><div style="font-size:14px;color:#888;font-family:'DM Mono',monospace;letter-spacing:0.06em;margin-top:2px">${rangeText}</div>`;
   } else {
     document.getElementById('weekDateRange').textContent = weekDateStr;
   }
