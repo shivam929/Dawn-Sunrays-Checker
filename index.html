@@ -7,13 +7,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/style.css">
+<base target="_blank">
 </head>
 <body>
 
 <!-- NAVBAR -->
 <nav>
   <div class="nav-inner">
-    <a href="#hero" class="nav-logo">
+    <a href="#hero" target="_self" class="nav-logo">
       <img id="navLogo" src="" alt="DAWN">
       <span>DAWN Sunrays</span>
     </a>
@@ -21,11 +22,11 @@
       <span></span><span></span><span></span>
     </button>
     <ul class="nav-links" id="navLinks">
-      <li><a href="#hero" onclick="closeNav()">Sunrays Checker</a></li>
-      <li><a href="#leaderboard" onclick="closeNav()">Global Leaderboard</a></li>
-      <li><a href="#tiers" onclick="closeNav()">Tier Distribution</a></li>
-      <li><a href="#weekly" onclick="closeNav()">Weekly Winners</a></li>
-      <li><a href="#guide" onclick="closeNav()">Sunrays Guide</a></li>
+      <li><a href="#hero" target="_self" onclick="closeNav()">Sunrays Checker</a></li>
+      <li><a href="#leaderboard" target="_self" onclick="closeNav()">Global Leaderboard</a></li>
+      <li><a href="#tiers" target="_self" onclick="closeNav()">Tier Distribution</a></li>
+      <li><a href="#weekly" target="_self" onclick="closeNav()">Weekly Winners</a></li>
+      <li><a href="#guide" target="_self" onclick="closeNav()">Sunrays Guide</a></li>
     </ul>
     <div class="nav-right">
       <a href="https://magiceden.io/marketplace/gc9syubdmyfrulfbtbv2ke1hn5z9qszdxegtfbanutuc" target="_blank" rel="noopener" class="nft-btn">
@@ -70,11 +71,11 @@
   <div class="hero-stats">
     <div class="hs-item">
       <div class="hs-val mono" id="statTotal">—</div>
-      <div class="hs-lbl">Total Members</div>
+      <div class="hs-lbl">Sunrays Collector</div>
     </div>
     <div class="hs-item">
       <div class="hs-val mono" id="statMaxRays">—</div>
-      <div class="hs-lbl">Max Sunrays</div>
+      <div class="hs-lbl">Max Sunrays Earned</div>
     </div>
     <div class="hs-item">
       <div class="hs-val mono" id="statNFT">—</div>
@@ -224,17 +225,17 @@
       </div>
       <div class="footer-col">
         <h4>Official Links</h4>
-        <a href="https://www.dawninternet.com/" target="_blank" rel="noopener">DAWN Website</a>
+        <a href="https://www.dawn.xyz" target="_blank" rel="noopener">DAWN Website</a>
         <a href="https://x.com/dawninternet" target="_blank" rel="noopener">DAWN on X</a>
-        <a href="https://discord.gg/dawninternet" target="_blank" rel="noopener">DAWN Discord</a>
-        <a href="https://cdn.prod.website-files.com/665dc8eb8d9f8c4764608070/66c3c22442580dcd5962c723_DAWN%20Whitepaper%20July%2025%2C%202024%20(1).pdf" target="_blank" rel="noopener">Documentation</a>
+        <a href="https://discord.gg/dawnprotocol" target="_blank" rel="noopener">DAWN Discord</a>
+        <a href="https://docs.dawn.xyz" target="_blank" rel="noopener">Documentation</a>
       </div>
       <div class="footer-col">
         <h4>Community</h4>
         <a href="https://x.com/Bunnyyxtan" target="_blank" rel="noopener">Created by Bunny</a>
-        <a href="#weekly">Weekly Winners</a>
-        <a href="#leaderboard">Leaderboard</a>
-        <a href="#guide">Sunrays Guide</a>
+        <a href="#weekly" target="_self">Weekly Winners</a>
+        <a href="#leaderboard" target="_self">Leaderboard</a>
+        <a href="#guide" target="_self">Sunrays Guide</a>
       </div>
     </div>
     <div class="footer-bottom">
@@ -264,6 +265,20 @@
         Share on X
       </button>
     </div>
+  </div>
+</div>
+
+<!-- TIER HOLDERS MODAL -->
+<div class="tier-holders-overlay" id="tierHoldersModal" onclick="closeTierHoldersModal(event)">
+  <div class="tier-holders-modal" onclick="event.stopPropagation()">
+    <div class="tier-holders-header">
+      <div>
+        <div class="tier-holders-title" id="tierHoldersTitle">Tier Holders</div>
+        <div class="tier-holders-count" id="tierHoldersCount"></div>
+      </div>
+      <button class="tier-holders-close" onclick="closeTierHoldersModal()">&times;</button>
+    </div>
+    <div class="tier-holders-list" id="tierHoldersList"></div>
   </div>
 </div>
 
