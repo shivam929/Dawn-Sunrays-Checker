@@ -282,6 +282,7 @@ function renderTierDistribution() {
         <div class="newcomer-note">Not an official NFT tier. Members with 1–4 sunrays are welcomed as Newcomers to the DAWN community. Keep participating to reach Trailblazer!</div>
       </div>
       <div class="newcomer-count">${newcomerHolders.length}<br><span style="font-size:12px;color:var(--muted)">members</span></div>
+      ${newcomerHolders.length > 0 ? `<button class="tier-show-more-btn" onclick="openTierHoldersModal('Newcomer','#4a7a6a')">Show All Holders</button>` : ''}
     </div>
   `;
 }
