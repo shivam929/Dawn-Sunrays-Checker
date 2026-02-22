@@ -1,1063 +1,1043 @@
-:root {
-  --bg: #060606;
-  --bg2: #0e0e0e;
-  --bg3: #161616;
-  --orange: #f97316;
-  --orange-dim: #c2560e;
-  --orange-bright: #fb923c;
-  --white: #f5f0eb;
-  --muted: #6b6b6b;
-  --border: #1f1f1f;
-  --border2: #2a2a2a;
-  --gold: #d4a843;
+// ============================================================
+// CONFIG
+// ============================================================
+const SITE_URL = 'https://dawn-sunrays-checker.vercel.app';
+
+const TIERS = [
+  { name: 'Dawn Ascendant', min: 35, max: Infinity, key: 'Dawn Ascendant', nft: true, color: '#f97316' },
+  { name: 'Solar Sentinel',  min: 30, max: 34, key: 'Solar Sentinel',  nft: true, color: '#d4a843' },
+  { name: 'Keeper of the Flame', min: 25, max: 29, key: 'Keeper of the Flame', nft: true, color: '#cd7f32' },
+  { name: 'Luminary',  min: 20, max: 24, key: 'Luminary',  nft: true, color: '#c87840' },
+  { name: 'Architect', min: 15, max: 19, key: 'Architect', nft: true, color: '#6496c8' },
+  { name: 'Beacon',    min: 10, max: 14, key: 'Beacon',    nft: true, color: '#5082b4' },
+  { name: 'Trailblazer', min: 5, max: 9, key: 'Trailblazer', nft: true, color: '#3c6ea0' },
+  { name: 'Newcomer',   min: 1, max: 4,  key: 'Newcomer',   nft: false, color: '#4a7a6a' },
+];
+
+function getTier(rays) {
+  return TIERS.find(t => rays >= t.min && rays <= t.max) || TIERS[TIERS.length-1];
 }
 
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+// ============================================================
+// STATE
+// ============================================================
+let allUsers = [];
+let weeklyData = {};
+let allWeeks = [];
+let currentWeekIndex = 0;
+const PAGE_SIZE = 25;
+let currentPage = 1;
+let weeklyJsonData = null;
+let currentCardUser = null;
+let weeklyRefreshInterval = null;
+let sunraysRefreshInterval = null;
 
-html{scroll-behavior:smooth}
-
-body {
-  background: var(--bg);
-  color: var(--white);
-  font-family: 'Outfit', sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
-  overflow-x: hidden;
-}
-
-body::before {
-  content:'';
-  position:fixed;
-  inset:0;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
-  opacity:0.03;
-  pointer-events:none;
-  z-index:9999;
-}
-
-h1,h2,h3,h4{font-family:'Syne',sans-serif;line-height:1.1}
-.mono{font-family:'DM Mono',monospace}
-
-.container{max-width:1200px;margin:0 auto;padding:0 24px}
-
-/* ===== NAVBAR ===== */
-nav {
-  position:sticky;top:0;z-index:100;
-  background:rgba(6,6,6,0.85);
-  backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);
-  padding:0 24px;
-}
-.nav-inner {
-  max-width:1200px;margin:0 auto;
-  display:flex;align-items:center;
-  height:64px;gap:32px;
-}
-.nav-logo {
-  display:flex;align-items:center;gap:10px;
-  text-decoration:none;flex-shrink:0;
-}
-.nav-logo img{width:32px;height:32px;border-radius:8px}
-.nav-logo span{font-family:'Syne',sans-serif;font-weight:700;font-size:17px;color:var(--white)}
-.nav-links {
-  display:flex;align-items:center;gap:4px;
-  flex:1;justify-content:center;
-  list-style:none;
-}
-.nav-links a {
-  color:var(--muted);text-decoration:none;
-  font-size:13.5px;font-weight:500;
-  padding:6px 14px;border-radius:8px;
-  transition:color 0.2s ease,background 0.2s ease;
-  white-space:nowrap;
-}
-.nav-links a:hover{color:var(--white);background:var(--border)}
-.nav-right {
-  display:flex;align-items:center;gap:12px;
-  flex-shrink:0;
-}
-.nav-creator {
-  text-decoration:none;color:var(--muted);
-  font-size:12.5px;font-weight:500;
-  transition:color 0.2s ease;
-  white-space:nowrap;
-}
-.nav-creator:hover{color:var(--orange)}
-.nav-creator span{color:var(--orange)}
-.nft-btn {
-  display:inline-flex;align-items:center;gap:6px;
-  background:linear-gradient(135deg, rgba(212,168,67,0.15), rgba(249,115,22,0.1));
-  border:1px solid rgba(212,168,67,0.4);
-  color:var(--gold);
-  padding:6px 14px;
-  border-radius:8px;
-  font-size:11px;
-  font-weight:600;
-  text-decoration:none;
-  text-transform:uppercase;
-  letter-spacing:0.05em;
-  transition:all 0.2s ease;
-  white-space:nowrap;
-}
-.nft-btn:hover {
-  background:linear-gradient(135deg, rgba(212,168,67,0.25), rgba(249,115,22,0.18));
-  border-color:rgba(212,168,67,0.6);
-  transform:translateY(-1px);
-  box-shadow:0 4px 12px rgba(212,168,67,0.15);
-}
-.nft-btn svg{width:14px;height:14px}
-
-.nav-toggle{display:none;background:none;border:none;cursor:pointer;padding:4px}
-.nav-toggle span{display:block;width:22px;height:2px;background:var(--white);margin:5px 0;transition:0.3s ease}
-
-/* ===== HERO ===== */
-#hero {
-  min-height:90vh;
-  display:flex;align-items:center;justify-content:center;
-  flex-direction:column;
-  text-align:center;
-  padding:100px 24px 72px;
-  position:relative;
-  overflow:hidden;
-  gap:0;
-}
-#hero::before {
-  content:'';position:absolute;inset:0;
-  background:radial-gradient(ellipse 80% 60% at 50% 0%, rgba(249,115,22,0.12) 0%, transparent 70%);
-  pointer-events:none;
-}
-.hero-eyebrow {
-  display:inline-flex;align-items:center;gap:8px;
-  font-size:12px;font-weight:600;letter-spacing:0.15em;
-  text-transform:uppercase;color:var(--orange);
-  background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.2);
-  padding:7px 18px;border-radius:100px;margin-bottom:32px;
-}
-.hero-eyebrow .dot{width:6px;height:6px;background:var(--orange);border-radius:50%;animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
-
-.hero-title {
-  font-size:clamp(38px,7vw,88px);font-weight:800;
-  letter-spacing:-0.03em;line-height:0.95;
-  margin-bottom:24px;
-}
-.hero-title .orange{color:var(--orange)}
-
-.hero-sub {
-  font-size:18px;color:#888;max-width:540px;
-  margin:0 auto 52px;line-height:1.7;font-weight:300;
-  padding:0 16px;
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  await loadImages();
+  buildTierGuide();
+  setupSearch();
+  
+  // Start auto-refresh for all data
+  startAutoRefresh();
+  
+  // Initial data load
+  await loadAllData();
 }
 
-/* SEARCH */
-.search-wrapper {
-  width:100%;max-width:560px;position:relative;margin:0 auto;
-  padding:0 8px;
-}
-.search-box {
-  width:100%;padding:16px 48px 16px 52px;
-  background:var(--bg3);border:1px solid var(--border2);
-  color:var(--white);font-size:16px;font-family:'Outfit',sans-serif;
-  border-radius:14px;outline:none;
-  transition:border-color 0.2s ease,box-shadow 0.2s ease,transform 0.2s ease;
-  box-shadow:0 0 0 0 rgba(249,115,22,0);
-}
-.search-box:focus {
-  border-color:rgba(249,115,22,0.5);
-  box-shadow:0 0 0 3px rgba(249,115,22,0.08);
-  transform:translateY(-1px);
-}
-.search-box::placeholder{color:var(--muted)}
-.search-icon {
-  position:absolute;left:26px;top:50%;transform:translateY(-50%);
-  color:var(--muted);pointer-events:none;
-}
-.search-clear {
-  position:absolute;right:18px;top:50%;transform:translateY(-50%);
-  background:none;border:none;color:var(--muted);cursor:pointer;
-  display:none;font-size:20px;line-height:1;padding:4px 8px;
-  border-radius:4px;transition:color 0.2s ease,background 0.2s ease;
-}
-.search-clear:hover{color:var(--white);background:var(--border)}
-
-.autocomplete-list {
-  position:absolute;top:calc(100% + 6px);left:8px;right:8px;
-  background:var(--bg3);border:1px solid var(--border2);
-  border-radius:12px;overflow:hidden;
-  box-shadow:0 16px 40px rgba(0,0,0,0.6);
-  z-index:50;display:none;max-height:300px;overflow-y:auto;
-}
-.autocomplete-list::-webkit-scrollbar{width:4px}
-.autocomplete-list::-webkit-scrollbar-track{background:transparent}
-.autocomplete-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
-
-.ac-item {
-  display:flex;align-items:center;justify-content:space-between;
-  padding:13px 18px;cursor:pointer;transition:background 0.15s ease;
-  border-bottom:1px solid var(--border);
-}
-.ac-item:last-child{border-bottom:none}
-.ac-item:hover,.ac-item.active{background:var(--border)}
-.ac-name{font-weight:500;font-size:15px}
-.ac-rays{font-family:'DM Mono',monospace;font-size:13px;color:var(--orange)}
-
-/* SEARCH RESULT CARD */
-.result-card {
-  margin:24px auto 0;
-  background:var(--bg3);border:1px solid var(--border2);
-  border-radius:16px;padding:28px;
-  text-align:left;display:none;
-  animation:fadeIn 0.3s ease;
-  max-width:560px;width:calc(100% - 16px);
-  transition:border-color 0.2s ease,box-shadow 0.2s ease,transform 0.2s ease;
-}
-.result-card:hover {
-  border-color:rgba(249,115,22,0.3);
-  box-shadow:0 8px 32px rgba(249,115,22,0.08);
-  transform:translateY(-2px);
-}
-@keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-
-.rc-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap}
-.rc-username{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;word-break:break-word}
-.rc-username a{color:var(--white);text-decoration:none;transition:color 0.2s ease}
-.rc-username a:hover{color:var(--orange)}
-.rc-tier-badge{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:5px 14px;border-radius:100px;font-size:12px;font-weight:600;
-  flex-shrink:0;
-}
-.rc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
-.rc-stat{background:var(--bg2);border-radius:10px;padding:14px;text-align:center;transition:transform 0.2s ease,background 0.2s ease}
-.rc-stat:hover{transform:translateY(-2px);background:var(--border)}
-.rc-stat-val{font-family:'DM Mono',monospace;font-size:24px;font-weight:500;color:var(--orange);line-height:1}
-.rc-stat-lbl{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.08em}
-
-.progress-section{margin-bottom:8px}
-.progress-labels{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:8px}
-.progress-bar{height:6px;background:var(--border2);border-radius:99px;overflow:hidden}
-.progress-fill{height:100%;background:linear-gradient(90deg,var(--orange-dim),var(--orange));border-radius:99px;transition:width 0.6s ease}
-
-.no-result{display:none;margin-top:24px;padding:24px;text-align:center;color:var(--muted)}
-.no-result-icon{font-size:36px;margin-bottom:8px}
-
-/* HERO STATS */
-.hero-stats{
-  display:flex;gap:48px;justify-content:center;margin-top:56px;
-  flex-wrap:wrap;
-}
-.hs-item{text-align:center}
-.hs-val{font-family:'DM Mono',monospace;font-size:30px;font-weight:500;color:var(--orange)}
-.hs-lbl{font-size:13px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.1em}
-
-/* ===== SECTIONS ===== */
-section{padding:80px 0;border-top:1px solid var(--border)}
-
-.section-tag{
-  font-size:12px;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;
-  color:var(--orange);margin-bottom:12px;
-}
-.section-title{font-size:clamp(28px,4vw,44px);font-weight:700;letter-spacing:-0.02em;margin-bottom:10px}
-.section-sub{font-size:16px;color:#888;max-width:560px}
-.section-head{margin-bottom:48px}
-
-/* ===== LEADERBOARD ===== */
-#leaderboard .container > .section-head{
-  display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;
+function startAutoRefresh() {
+  // Initial loads
+  loadWeeklyData();
+  loadSunraysData();
+  
+  // Set up intervals for auto-refresh every 60 seconds
+  weeklyRefreshInterval = setInterval(loadWeeklyData, 60000);
+  sunraysRefreshInterval = setInterval(loadSunraysData, 60000);
 }
 
-.lb-table-wrapper{
-  background:var(--bg2);border:1px solid var(--border);
-  border-radius:16px;overflow:hidden;
-  transition:border-color 0.2s ease,box-shadow 0.2s ease;
-}
-.lb-table-wrapper:hover{border-color:var(--border2)}
-.lb-row{
-  display:grid;grid-template-columns:56px 1fr auto auto;
-  align-items:center;gap:16px;
-  padding:14px 20px;
-  border-bottom:1px solid var(--border);
-  transition:background 0.15s ease,transform 0.15s ease;
-}
-.lb-row:last-child{border-bottom:none}
-.lb-row:hover{background:var(--bg3);transform:translateX(4px)}
-.lb-rank{font-family:'DM Mono',monospace;font-size:14px;color:var(--muted);text-align:center}
-.lb-rank.top1{color:#ffd700;font-weight:700}
-.lb-rank.top2{color:#c0c0c0;font-weight:700}
-.lb-rank.top3{color:#cd7f32;font-weight:700}
-.lb-medal{font-size:18px}
-.lb-name{font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lb-name a{color:var(--white);text-decoration:none;transition:color 0.2s ease}
-.lb-name a:hover{color:var(--orange)}
-.lb-tier-tag{
-  font-size:13px;font-weight:600;padding:4px 12px;border-radius:100px;
-  white-space:nowrap;
-}
-.lb-rays{font-family:'DM Mono',monospace;font-size:14px;color:var(--orange);font-weight:500;text-align:right}
-
-.lb-header{
-  display:grid;grid-template-columns:56px 1fr auto auto;
-  gap:16px;padding:10px 20px;
-  background:var(--bg3);border-bottom:1px solid var(--border2);
-}
-.lb-header span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:500}
-.lb-header span:last-child{text-align:right}
-
-/* PAGINATION */
-.pagination{
-  display:flex;align-items:center;justify-content:center;
-  gap:4px;margin-top:24px;flex-wrap:wrap;
-}
-.page-btn{
-  min-width:36px;height:36px;border-radius:8px;
-  background:var(--bg3);border:1px solid var(--border);
-  color:var(--white);font-size:13px;cursor:pointer;
-  transition:background 0.2s ease,border-color 0.2s ease,color 0.2s ease,transform 0.15s ease;
-  font-family:'DM Mono',monospace;
-}
-.page-btn:hover{background:var(--border2);border-color:var(--border2);transform:translateY(-1px)}
-.page-btn.active{background:var(--orange);border-color:var(--orange);color:#fff;font-weight:600}
-.page-btn:disabled{opacity:0.3;cursor:not-allowed;transform:none}
-
-.tier-carousel-container{
-  position:relative;
-  overflow:hidden;
-  padding:8px 0;
-}
-.tier-carousel{
-  display:flex;
-  gap:16px;
-  cursor:grab;
-  user-select:none;
-  will-change:transform;
-}
-.tier-carousel.is-dragging{
-  cursor:grabbing;
-}
-.tier-carousel.anim-css{
-  animation:carouselSlide 40s linear infinite;
-}
-.tier-carousel.anim-css:hover{
-  animation-play-state:paused;
-}
-@keyframes carouselSlide{
-  0%{transform:translateX(0)}
-  100%{transform:translateX(-50%)}
-}
-.tier-card{
-  flex:0 0 180px;
-  background:var(--bg2);border:1px solid var(--border);
-  border-radius:14px;overflow:hidden;
-  transition:transform 0.2s ease,border-color 0.2s ease,box-shadow 0.2s ease;
-}
-.tier-carousel:not(.is-dragging) .tier-card:hover{transform:translateY(-4px);border-color:var(--orange);box-shadow:0 8px 24px rgba(249,115,22,0.1)}
-.tier-img-wrap{
-  aspect-ratio:3/4;overflow:hidden;
-  background:var(--bg3);
-}
-.tier-img-wrap img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 0.3s ease}
-.tier-carousel:not(.is-dragging) .tier-card:hover .tier-img-wrap img{transform:scale(1.05)}
-.tier-info{padding:12px}
-.tier-name{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:4px}
-.tier-range{font-family:'DM Mono',monospace;font-size:12px;color:var(--orange);margin-bottom:6px}
-.tier-count{font-size:13px;color:#999}
-.tier-count strong{color:var(--white)}
-.tier-top-users{margin-top:8px;border-top:1px solid var(--border);padding-top:8px}
-.tier-user{font-size:13px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 0}
-
-.newcomer-banner{
-  background:var(--bg2);border:1px solid var(--border);
-  border-radius:14px;padding:20px 24px;
-  display:flex;align-items:center;gap:20px;flex-wrap:wrap;
-  margin-top:24px;
-  transition:border-color 0.2s ease,transform 0.2s ease;
-}
-.newcomer-banner:hover{border-color:var(--border2);transform:translateY(-2px)}
-.newcomer-img{width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0}
-.newcomer-info{flex:1}
-.newcomer-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:4px}
-.newcomer-note{font-size:14px;color:#999}
-.newcomer-count{font-family:'DM Mono',monospace;font-size:24px;color:var(--orange);font-weight:500}
-
-/* ===== WEEKLY WINNERS ===== */
-.week-nav{
-  display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:4px;
-  padding:12px 0;
-}
-.week-btn{
-  background:var(--bg3);border:1px solid var(--border);
-  color:var(--white);padding:9px 20px;border-radius:8px;
-  cursor:pointer;font-size:14px;font-weight:500;transition:all 0.2s ease;
-  font-family:'Outfit',sans-serif;white-space:nowrap;flex-shrink:0;
-}
-.week-btn:hover:not(:disabled){background:var(--border2);border-color:rgba(249,115,22,0.3);transform:translateY(-1px)}
-.week-btn:disabled{opacity:0.35;cursor:not-allowed;transform:none}
-.week-label{
-  font-family:'Syne',sans-serif;font-size:28px;font-weight:700;flex:1;text-align:center;
-  color:var(--white);letter-spacing:0.01em;line-height:1.3;
-}
-.week-date-range{
-  width:100%;text-align:center;margin-bottom:32px;
-  display:flex;flex-direction:column;align-items:center;gap:6px;
-}
-
-.ww-cat{margin-bottom:24px}
-.ww-cat-title{
-  font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;
-  color:var(--muted);margin-bottom:10px;padding-bottom:6px;
-  border-bottom:1px solid var(--border);
-}
-.ww-grid{
-  display:flex;flex-wrap:wrap;gap:8px;
-}
-.ww-winner-tag{
-  display:inline-flex;align-items:center;gap:6px;
-  background:var(--bg3);border:1px solid var(--border);
-  padding:6px 14px;border-radius:8px;font-size:14px;
-  transition:all 0.2s ease;
-}
-.ww-winner-tag:hover{border-color:var(--orange);transform:translateY(-1px)}
-.ww-winner-tag a{color:var(--white);text-decoration:none;transition:color 0.2s ease}
-.ww-winner-tag a:hover{color:var(--orange)}
-.ww-rays{font-family:'DM Mono',monospace;font-size:12px;color:var(--orange)}
-.ww-empty{color:var(--muted);font-size:15px;padding:32px;text-align:center}
-
-/* ===== SUNRAYS GUIDE ===== */
-.guide-grid{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
-  gap:20px;
-}
-.guide-card{
-  background:var(--bg2);border:1px solid var(--border);
-  border-radius:14px;padding:24px;
-  transition:all 0.2s ease;
-}
-.guide-card:hover{border-color:var(--border2);transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,0.3)}
-.guide-icon{font-size:30px;margin-bottom:14px}
-.guide-title{font-family:'Syne',sans-serif;font-size:19px;font-weight:700;margin-bottom:10px}
-.guide-text{font-size:15px;color:#888;line-height:1.7}
-
-.tier-list-guide{margin-top:24px}
-.tlg-item{
-  display:flex;align-items:center;gap:12px;
-  padding:12px 16px;background:var(--bg2);border:1px solid var(--border);
-  border-radius:10px;margin-bottom:6px;
-  transition:all 0.2s ease;
-}
-.tlg-item:hover{border-color:var(--border2);transform:translateX(4px)}
-.tlg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.tlg-name{font-weight:600;font-size:15px;flex:1}
-.tlg-rays{font-family:'DM Mono',monospace;font-size:13px;color:var(--orange)}
-.tlg-nft-badge{
-  font-size:10px;font-weight:700;padding:3px 8px;
-  border-radius:4px;background:rgba(249,115,22,0.1);
-  color:var(--orange);letter-spacing:0.05em;
-}
-
-/* ===== CTA ===== */
-#cta{
-  background:linear-gradient(135deg,rgba(249,115,22,0.08),transparent);
-  text-align:center;
-}
-.cta-buttons{
-  display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:32px;
-}
-.btn{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;
-  text-decoration:none;transition:all 0.2s ease;cursor:pointer;border:none;
-  font-family:'Outfit',sans-serif;
-}
-.btn-primary{background:var(--orange);color:#fff}
-.btn-primary:hover{background:var(--orange-bright);transform:translateY(-2px);box-shadow:0 4px 16px rgba(249,115,22,0.3)}
-.btn-outline{background:transparent;color:var(--white);border:1px solid var(--border2)}
-.btn-outline:hover{background:var(--border);border-color:var(--border2);transform:translateY(-2px)}
-
-/* ===== FOOTER ===== */
-footer{
-  padding:48px 0 32px;border-top:1px solid var(--border);
-}
-.footer-inner{
-  display:flex;justify-content:space-between;align-items:flex-start;
-  gap:40px;flex-wrap:wrap;
-}
-.footer-brand{flex:1;min-width:200px}
-.footer-logo{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.footer-logo img{width:28px;height:28px;border-radius:6px}
-.footer-logo span{font-family:'Syne',sans-serif;font-weight:700;font-size:16px}
-.footer-desc{font-size:13px;color:var(--muted);max-width:280px;line-height:1.6}
-.footer-col h4{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:12px}
-.footer-col a{
-  display:block;font-size:13.5px;color:#666;text-decoration:none;
-  margin-bottom:8px;transition:color 0.2s ease;
-}
-.footer-col a:hover{color:var(--white)}
-.footer-bottom{
-  margin-top:40px;padding-top:20px;border-top:1px solid var(--border);
-  display:flex;justify-content:space-between;align-items:center;gap:16px;
-  flex-wrap:wrap;font-size:12px;color:var(--muted);
-}
-
-/* ===== LOADING ===== */
-.loader{
-  display:flex;align-items:center;justify-content:center;
-  gap:8px;padding:40px;color:var(--muted);font-size:14px;
-}
-.spinner{
-  width:18px;height:18px;border:2px solid var(--border2);
-  border-top-color:var(--orange);border-radius:50%;
-  animation:spin 0.7s linear infinite;
-}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* ERROR STATE */
-.error-state{
-  text-align:center;padding:40px 24px;color:var(--muted);
-}
-.error-state-icon{font-size:36px;margin-bottom:12px}
-.error-state-title{font-size:16px;font-weight:600;color:var(--white);margin-bottom:8px}
-.error-state-msg{font-size:13px;margin-bottom:16px}
-.retry-btn{
-  background:var(--bg3);border:1px solid var(--border);color:var(--white);
-  padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;
-  transition:all 0.2s ease;
-}
-.retry-btn:hover{background:var(--border2);border-color:var(--orange)}
-
-/* TIER COLORS */
-.tier-dawn-ascendant,.tier-dawn_ascendant{border-color:rgba(249,115,22,0.4)!important}
-.tier-solar-sentinel,.tier-solar_sentinel{border-color:rgba(212,168,67,0.4)!important}
-.tier-keeper,.tier-keeper_of_the_flame{border-color:rgba(168,100,40,0.3)!important}
-.tier-luminary{border-color:rgba(200,120,60,0.3)!important}
-.tier-architect{border-color:rgba(100,150,200,0.25)!important}
-.tier-beacon{border-color:rgba(80,130,180,0.25)!important}
-.tier-trailblazer{border-color:rgba(60,110,160,0.25)!important}
-
-/* SCROLLBAR */
-::-webkit-scrollbar{width:6px}
-::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
-
-/* PROFILE CARD MODAL */
-.card-modal-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,0.85);
-  backdrop-filter:blur(8px);z-index:1000;
-  display:flex;align-items:center;justify-content:center;
-  padding:24px;opacity:0;visibility:hidden;
-  transition:opacity 0.3s ease,visibility 0.3s ease;
-}
-.card-modal-overlay.active{opacity:1;visibility:visible}
-.card-modal{
-  background:var(--bg2);border:1px solid var(--border2);
-  border-radius:20px;padding:24px;max-width:420px;width:100%;
-  transform:scale(0.95);transition:transform 0.3s ease;
-}
-.card-modal-overlay.active .card-modal{transform:scale(1)}
-.card-modal-header{
-  display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:20px;
-}
-.card-modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700}
-.card-modal-close{
-  background:none;border:none;color:var(--muted);cursor:pointer;
-  font-size:24px;line-height:1;padding:4px;transition:color 0.2s ease;
-}
-.card-modal-close:hover{color:var(--white)}
-.card-canvas-container{
-  background:var(--bg);border-radius:12px;overflow:hidden;
-  margin-bottom:20px;border:1px solid var(--border);
-}
-.card-canvas-container canvas{display:block;width:100%;height:auto}
-.card-modal-actions{
-  display:flex;gap:12px;flex-wrap:wrap;
-}
-.card-modal-actions .btn{flex:1;min-width:140px;justify-content:center}
-
-/* SHARE BUTTONS IN RESULT CARD */
-.rc-share-btns{
-  display:flex;gap:8px;margin-top:16px;padding-top:16px;
-  border-top:1px solid var(--border);flex-wrap:wrap;
-}
-.rc-share-btn{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:8px 14px;border-radius:8px;font-size:12px;font-weight:500;
-  text-decoration:none;transition:all 0.2s ease;cursor:pointer;border:none;
-  font-family:'Outfit',sans-serif;color:var(--white);
-  background:var(--bg2);border:1px solid var(--border);
-}
-.rc-share-btn:hover{transform:translateY(-1px);border-color:var(--orange)}
-.rc-share-btn svg{width:14px;height:14px}
-.rc-share-btn.primary{background:var(--orange);border-color:var(--orange)}
-.rc-share-btn.primary:hover{background:var(--orange-bright)}
-
-/* RESPONSIVE */
-@media(max-width:768px){
-  .nav-links{
-    display:flex;flex-direction:column;
-    position:fixed;inset:64px 0 0;
-    background:rgba(6,6,6,0.97);
-    backdrop-filter:blur(20px);
-    padding:32px 24px;gap:6px;
-    z-index:99;border-top:1px solid var(--border);
-    overflow-y:auto;
-    transform:translateY(-8px);
-    opacity:0;
-    pointer-events:none;
-    transition:opacity 0.25s ease, transform 0.25s ease;
-  }
-  .nav-links.open{
-    transform:translateY(0);
-    opacity:1;
-    pointer-events:all;
-  }
-  .nav-links li { width:100%; }
-  .nav-links a {
-    display:block;
-    padding:16px 20px;
-    font-size:17px;
-    font-weight:600;
-    border-radius:12px;
-    color:var(--white);
-    background:var(--bg2);
-    border:1px solid var(--border);
-    text-align:left;
-    min-height:52px;
-    line-height:1.3;
-  }
-  .nav-links a:hover{color:var(--orange);border-color:rgba(249,115,22,0.3);background:rgba(249,115,22,0.05)}
-  .nav-toggle{display:block}
-  .nav-creator{display:none}
-  .nft-btn{display:none}
-  .hero-title{font-size:clamp(32px,10vw,56px)}
-  .hero-sub{font-size:16px;padding:0 12px}
-  .search-wrapper{padding:0 12px}
-  .search-box{padding:14px 44px 14px 48px;font-size:15px}
-  .search-icon{left:24px}
-  .search-clear{right:16px}
-  .autocomplete-list{left:12px;right:12px}
-  .result-card{padding:20px;margin-top:20px}
-  .rc-header{flex-direction:column;align-items:flex-start;gap:12px}
-  .rc-username{font-size:19px}
-  .rc-stats{grid-template-columns:repeat(3,1fr);gap:8px}
-  .rc-stat{padding:12px 8px}
-  .rc-stat-val{font-size:18px}
-  .rc-stat-lbl{font-size:11px}
-  .lb-row{grid-template-columns:44px 1fr auto}
-  .lb-tier-tag{display:none}
-  .tier-card{flex:0 0 155px}
-  .guide-grid{grid-template-columns:1fr}
-  .footer-inner{flex-direction:column;gap:28px}
-  .week-nav{gap:8px}
-  .week-label{font-size:22px}
-  .week-btn{padding:8px 14px;font-size:13px}
-  .card-modal-actions{flex-direction:column}
-  .card-modal-actions .btn{width:100%}
-  .hs-lbl{font-size:12px}
-  .hs-val{font-size:26px}
-}
-@media(max-width:480px){
-  .hero-stats{gap:20px}
-  .hs-val{font-size:22px}
-  .hs-lbl{font-size:11px}
-  .tier-card{flex:0 0 145px}
-  .rc-stats{grid-template-columns:1fr 1fr 1fr}
-  .newcomer-banner{flex-direction:column;text-align:center}
-  .newcomer-info{width:100%}
-  .rc-share-btns{justify-content:center}
-}
-@media(max-width:360px){
-  .hero-title{font-size:28px}
-  .search-box{padding:12px 40px 12px 44px;font-size:14px}
-  .rc-stats{grid-template-columns:1fr 1fr}
-  .rc-stat:nth-child(3){grid-column:span 2}
-  .tier-card{flex:0 0 130px}
-}
-
-/* ACTIVITY BREAKDOWN */
-.activity-breakdown-scroll{
-  max-height:220px;
-  overflow-y:auto;
-  padding-right:4px;
-}
-.activity-breakdown-scroll::-webkit-scrollbar{width:4px}
-.activity-breakdown-scroll::-webkit-scrollbar-track{background:transparent}
-.activity-breakdown-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
-.activity-tag{
-  display:inline-flex;align-items:center;gap:6px;
-  font-size:12px;background:var(--bg2);border:1px solid var(--border);
-  padding:4px 12px;border-radius:6px;
-  transition:all 0.2s ease;white-space:nowrap;
-}
-.activity-tag:hover{border-color:var(--orange)}
-.activity-win-row{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:6px 10px;border-radius:8px;
-  background:var(--bg2);border:1px solid var(--border);
-  margin-bottom:4px;
-  gap:8px;
-}
-.activity-win-type{font-size:12px;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.activity-win-date{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;flex-shrink:0}
-.activity-win-rays{font-size:11px;color:var(--orange);font-family:'DM Mono',monospace;flex-shrink:0}
-
-/* ============================================================
-   UX/UI FIXES - Mobile Navbar, Typography, Responsiveness, Category Colors
-   ============================================================ */
-
-/* ===== MOBILE NAVBAR FIXES ===== */
-@media(max-width:768px){
-  .nav-links{
-    display:flex;
-    flex-direction:column;
-    position:fixed;
-    inset:64px 0 0;
-    background:rgba(6,6,6,0.98);
-    backdrop-filter:blur(20px);
-    padding:32px 24px;
-    gap:8px;
-    z-index:99;
-    border-top:1px solid var(--border);
-    overflow-y:auto;
-    transform:translateY(-100%);
-    opacity:0;
-    pointer-events:none;
-    transition:transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
-    height:calc(100vh - 64px);
-  }
-  .nav-links.open{
-    transform:translateY(0);
-    opacity:1;
-    pointer-events:all;
-  }
-  .nav-links li { 
-    width:100%;
-    opacity:0;
-    transform:translateY(-10px);
-    transition:opacity 0.3s ease, transform 0.3s ease;
-  }
-  .nav-links.open li {
-    opacity:1;
-    transform:translateY(0);
-  }
-  .nav-links.open li:nth-child(1) { transition-delay:0.05s; }
-  .nav-links.open li:nth-child(2) { transition-delay:0.1s; }
-  .nav-links.open li:nth-child(3) { transition-delay:0.15s; }
-  .nav-links.open li:nth-child(4) { transition-delay:0.2s; }
-  .nav-links.open li:nth-child(5) { transition-delay:0.25s; }
-
-  .nav-links a {
-    display:block;
-    padding:18px 24px;
-    font-size:18px;
-    font-weight:600;
-    border-radius:12px;
-    color:var(--white);
-    background:var(--bg2);
-    border:1px solid var(--border);
-    text-align:left;
-    min-height:56px;
-    line-height:1.4;
-    margin-bottom:4px;
-    transition:all 0.2s ease;
-  }
-  .nav-links a:hover{
-    color:var(--orange);
-    border-color:rgba(249,115,22,0.4);
-    background:rgba(249,115,22,0.08);
-    transform:translateX(4px);
-  }
-  .nav-toggle{
-    display:block;
-    width:44px;
-    height:44px;
-    border-radius:10px;
-    background:var(--bg3);
-    border:1px solid var(--border);
-    cursor:pointer;
-    padding:10px;
-    transition:all 0.2s ease;
-  }
-  .nav-toggle:hover{
-    background:var(--border);
-    border-color:var(--orange);
-  }
-  .nav-toggle span{
-    display:block;
-    width:22px;
-    height:2px;
-    background:var(--white);
-    margin:5px auto;
-    transition:0.3s ease;
-    border-radius:1px;
-  }
-  .nav-toggle.active span:nth-child(1){
-    transform:rotate(45deg) translate(5px, 5px);
-  }
-  .nav-toggle.active span:nth-child(2){
-    opacity:0;
-  }
-  .nav-toggle.active span:nth-child(3){
-    transform:rotate(-45deg) translate(5px, -5px);
+async function loadAllData() {
+  try {
+    await Promise.all([
+      loadSunraysData(),
+      loadWeeklyData()
+    ]);
+  } catch (err) {
+    console.warn('Data load error:', err);
+    showError('lbBody', 'Failed to load data. Please refresh.');
   }
 }
 
-/* ===== TYPOGRAPHY IMPROVEMENTS ===== */
-.section-sub{ font-size:17px; color:#999; max-width:560px; line-height:1.7; }
-.hs-lbl{ font-size:14px; color:var(--muted); margin-top:6px; text-transform:uppercase; letter-spacing:0.12em; font-weight:500; }
-.guide-text{ font-size:16px; color:#999; line-height:1.8; }
-.lb-header span{ font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; font-weight:600; }
-.lb-name{ font-weight:500; font-size:16px; }
-.lb-rays{ font-family:'DM Mono',monospace; font-size:15px; color:var(--orange); font-weight:500; text-align:right; }
-.tier-range{ font-family:'DM Mono',monospace; font-size:12px; color:var(--orange); margin-bottom:6px; font-weight:500; }
-.tier-count{ font-size:13px; color:var(--muted); }
-.week-date-range{ width:100%; text-align:center; font-size:13px; color:var(--muted); font-family:'DM Mono',monospace; margin-bottom:24px; }
-.ww-cat-title{ font-size:14px; font-weight:600; text-transform:uppercase; letter-spacing:0.12em; color:var(--muted); margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
-.rc-stat-lbl{ font-size:12px; color:var(--muted); margin-top:6px; text-transform:uppercase; letter-spacing:0.1em; font-weight:500; }
-.progress-labels{ display:flex; justify-content:space-between; font-size:13px; color:var(--muted); margin-bottom:8px; font-weight:500; }
-.footer-col a{ display:block; font-size:14px; color:#777; text-decoration:none; margin-bottom:10px; transition:color 0.2s ease; }
-.guide-icon{ font-size:32px; margin-bottom:16px; }
-.guide-title{ font-family:'Syne',sans-serif; font-size:20px; font-weight:700; margin-bottom:12px; }
-
-/* ===== RESPONSIVENESS ===== */
-@media(max-width:768px){
-  .hero-sub{ font-size:16px; padding:0 20px; line-height:1.7; }
-  .section-sub{ font-size:15px; padding:0 8px; }
-  .search-wrapper{ padding:0 16px; max-width:100%; }
-  .search-box{ padding:18px 48px 18px 52px; font-size:16px; }
-  .result-card{ margin:24px 16px 0; max-width:none; width:auto; }
-  .rc-stats{ grid-template-columns:repeat(3,1fr); gap:10px; }
-  .rc-stat{ padding:16px 8px; }
-  .rc-stat-val{ font-size:22px; }
-  .hero-stats{ gap:32px; margin-top:48px; padding:0 16px; }
-  .hs-val{ font-size:28px; }
-  .hs-lbl{ font-size:12px; }
-  .lb-row{ grid-template-columns:50px 1fr auto; gap:12px; padding:16px; }
-  .lb-header{ grid-template-columns:50px 1fr auto; gap:12px; padding:12px 16px; }
-  .lb-name{ font-size:15px; }
-  .lb-rays{ font-size:14px; }
-  .tier-card{ flex:0 0 160px; }
-  .guide-card{ padding:28px 24px; }
-  .week-nav{ gap:12px; padding:0 8px; }
-  .week-label{ font-size:20px; }
-  .week-btn{ padding:10px 16px; font-size:14px; min-width:100px; }
-  .ww-grid{ gap:10px; }
-  .ww-winner-tag{ padding:8px 14px; font-size:14px; }
-  .footer-inner{ flex-direction:column; gap:32px; padding:0 16px; }
-  .footer-desc{ font-size:14px; max-width:none; }
-  section{ padding:64px 0; }
-  .container{ padding:0 20px; }
-}
-@media(max-width:480px){
-  .hero-title{ font-size:clamp(32px,12vw,48px); }
-  .hero-sub{ font-size:15px; padding:0 16px; }
-  .section-title{ font-size:clamp(26px,6vw,36px); }
-  .rc-stats{ grid-template-columns:repeat(3,1fr); gap:8px; }
-  .rc-stat-val{ font-size:18px; }
-  .rc-stat-lbl{ font-size:10px; }
-  .hero-stats{ gap:24px; display:grid; grid-template-columns:repeat(2,1fr); width:100%; max-width:300px; }
-  .hs-item{ text-align:center; }
-  .hs-val{ font-size:24px; }
-  .hs-lbl{ font-size:11px; }
-  .lb-row{ grid-template-columns:40px 1fr auto; padding:14px 12px; }
-  .lb-rank{ font-size:13px; }
-  .lb-name{ font-size:14px; }
-  .lb-rays{ font-size:13px; }
-  .tier-card{ flex:0 0 140px; }
-  .ww-winner-tag{ font-size:13px; padding:6px 12px; }
-  .guide-grid{ grid-template-columns:1fr; gap:16px; }
-  .guide-card{ padding:24px 20px; }
-  .guide-text{ font-size:15px; }
-  .pagination{ gap:6px; }
-  .page-btn{ min-width:40px; height:40px; font-size:14px; }
-}
-@media(max-width:360px){
-  .hero-stats{ grid-template-columns:1fr 1fr; gap:20px; }
-  .rc-stats{ grid-template-columns:1fr 1fr; }
-  .rc-stat:nth-child(3){ grid-column:span 2; }
-  .search-box{ font-size:15px; padding:16px 44px 16px 48px; }
+// ============================================================
+// DATA FETCHING - COMPLETE DATA FROM JSON
+// ============================================================
+async function loadSunraysData() {
+  try {
+    const res = await fetch(`./all_sunrays.json?ts=${Date.now()}`);
+    if (!res.ok) throw new Error('Failed to fetch sunrays data');
+    const data = await res.json();
+    
+    // Process ALL users from JSON - no limits, no slicing
+    const formattedData = data.map(u => ({
+      discord_name: u['Discord Name'],
+      sun_rays: u['Sun Rays']
+    }));
+    
+    processSunraysData(formattedData);
+    return data;
+  } catch (e) {
+    console.error('Sunrays data fetch failed:', e);
+    showError('lbBody', 'Failed to load leaderboard data');
+    return null;
+  }
 }
 
-/* ===== WEEKLY WINNERS CATEGORY COLORS ===== */
-.ww-cat{ margin-bottom:28px; padding:20px; background:var(--bg2); border:1px solid var(--border); border-radius:12px; transition:border-color 0.2s ease; border-left:3px solid transparent; }
-.ww-cat:hover{ border-color:var(--border2); }
-.ww-cat-title{ display:flex; align-items:center; gap:10px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border); }
-.ww-cat-title::before{ content:''; width:8px; height:8px; border-radius:50%; background:var(--orange); flex-shrink:0; }
-.ww-cat[data-category="regional"] { border-left-color:var(--gold); }
-.ww-cat[data-category="regional"] .ww-cat-title::before { background:var(--gold); }
-.ww-cat[data-category="gaming"] { border-left-color:#60a5fa; }
-.ww-cat[data-category="gaming"] .ww-cat-title::before { background:#60a5fa; }
-.ww-cat[data-category="content"] { border-left-color:#4ade80; }
-.ww-cat[data-category="content"] .ww-cat-title::before { background:#4ade80; }
-.ww-cat[data-category="community"] { border-left-color:#a78bfa; }
-.ww-cat[data-category="community"] .ww-cat-title::before { background:#a78bfa; }
-.ww-cat[data-category="signal"] { border-left-color:var(--orange); }
-.ww-cat[data-category="signal"] .ww-cat-title::before { background:var(--orange); }
-.ww-winner-tag{ display:inline-flex; align-items:center; gap:8px; background:var(--bg3); border:1px solid var(--border); padding:8px 16px; border-radius:8px; font-size:14px; transition:all 0.2s ease; margin-bottom:6px; }
-.ww-winner-tag:hover{ border-color:var(--orange); transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.2); }
-.ww-rays{ font-family:'DM Mono',monospace; font-size:13px; color:var(--orange); font-weight:500; background:rgba(249,115,22,0.1); padding:2px 6px; border-radius:4px; }
-
-/* ===== FIX: WEEKLY WINNERS CATEGORY TITLE VISIBILITY ===== */
-.ww-cat-title {
-  font-size:14px !important;
-  font-weight:700 !important;
-  color:#d0ccc7 !important;
-  letter-spacing:0.1em !important;
+async function loadWeeklyData() {
+  try {
+    const res = await fetch(`./weekly_winners.json?ts=${Date.now()}`);
+    if (!res.ok) throw new Error('Failed to fetch weekly data');
+    const data = await res.json();
+    
+    // Only update if data changed
+    const dataStr = JSON.stringify(data);
+    const cachedStr = JSON.stringify(weeklyJsonData);
+    
+    if (dataStr !== cachedStr) {
+      weeklyJsonData = data;
+      const formattedData = data.map(w => ({
+        date: w['Date'],
+        discord_name: w['Discord Name'],
+        type: w['Type'],
+        sun_rays: w['Sun Rays'],
+        notes: w['Notes']
+      }));
+      processWeeklyData(formattedData);
+    }
+    
+    return data;
+  } catch (e) {
+    console.warn('Weekly data refresh failed:', e);
+    return null;
+  }
 }
 
-/* ===== FIX: GLOBAL TEXT READABILITY ===== */
-.section-sub { font-size:17px; color:#aaa; }
-.hs-lbl { font-size:14px; }
-.guide-text { font-size:16px; color:#aaa; }
-.footer-desc { font-size:14px; color:#888; }
-.footer-col a { font-size:14px; }
-.tier-count { font-size:13px; color:#999; }
-.tier-range { font-size:12px; }
-.lb-name { font-size:15px; }
-.lb-rays { font-size:15px; }
-.lb-tier-tag { font-size:13px; }
-.ac-name { font-size:15px; }
-.ac-rays { font-size:14px; }
-.week-date-range { font-size:14px; }
-.tier-user { font-size:14px !important; color:#bbb !important; }
-.newcomer-note { font-size:14px; color:#999; }
+function showError(elementId, message) {
+  const el = document.getElementById(elementId);
+  if (el) {
+    el.innerHTML = `
+      <div class="error-state">
+        <div class="error-state-icon">⚠️</div>
+        <div class="error-state-title">Something went wrong</div>
+        <div class="error-state-msg">${message}</div>
+        <button class="retry-btn" onclick="location.reload()">Retry</button>
+      </div>
+    `;
+  }
+}
 
-/* ===== TIER HOLDERS MODAL ===== */
-.tier-holders-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.82);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 500;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.25s ease, visibility 0.25s ease;
+// ============================================================
+// IMAGES
+// ============================================================
+async function loadImages() {
+  const logoPath = 'logo.png';
+  const navLogo = document.getElementById('navLogo');
+  const footerLogo = document.getElementById('footerLogo');
+  if (navLogo) navLogo.src = logoPath;
+  if (footerLogo) footerLogo.src = logoPath;
 }
-.tier-holders-overlay.active {
-  opacity: 1;
-  visibility: visible;
+
+// ============================================================
+// PROCESS SUNRAYS DATA - ALL USERS
+// ============================================================
+function processSunraysData(data) {
+  if (!data || data.length === 0) {
+    showError('lbBody', 'No data available');
+    return;
+  }
+  
+  // Process ALL users - no limits
+  allUsers = data.map((u, i) => ({
+    name: u.discord_name,
+    rays: u.sun_rays,
+    rank: i + 1,
+    tier: getTier(u.sun_rays)
+  }));
+  
+  const total = allUsers.length;
+  const maxRays = allUsers[0]?.rays || 0;
+  const nftHolders = allUsers.filter(u => u.rays >= 5).length;
+  
+  document.getElementById('statTotal').textContent = total.toLocaleString();
+  document.getElementById('statMaxRays').textContent = maxRays.toLocaleString();
+  document.getElementById('statNFT').textContent = nftHolders.toLocaleString();
+  
+  renderLeaderboard(currentPage);
+  renderTierDistribution();
 }
-.tier-holders-modal {
-  background: var(--bg2);
-  border: 1px solid var(--border2);
-  border-radius: 20px;
-  padding: 28px;
-  max-width: 480px;
-  width: 100%;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  transform: scale(0.94) translateY(8px);
-  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+
+// ============================================================
+// LEADERBOARD
+// ============================================================
+function renderLeaderboard(page) {
+  currentPage = page;
+  const start = (page - 1) * PAGE_SIZE;
+  const end = start + PAGE_SIZE;
+  const pageUsers = allUsers.slice(start, end);
+  
+  const body = document.getElementById('lbBody');
+  if (pageUsers.length === 0) {
+    body.innerHTML = '<div class="loader">No data available</div>';
+    return;
+  }
+  
+  const medals = ['🥇','🥈','🥉'];
+  body.innerHTML = pageUsers.map((u, i) => {
+    const absRank = start + i + 1;
+    let rankClass = '';
+    if (absRank === 1) rankClass = 'top1';
+    else if (absRank === 2) rankClass = 'top2';
+    else if (absRank === 3) rankClass = 'top3';
+    const medal = absRank <= 3 ? `<span class="lb-medal">${medals[absRank-1]}</span>` : '';
+    const tierTag = `<span class="lb-tier-tag" style="background:${u.tier.color}18;color:${u.tier.color};border:1px solid ${u.tier.color}30">${u.tier.name}</span>`;
+    return `
+      <div class="lb-row">
+        <div class="lb-rank ${rankClass}">${medal || '#'+absRank}</div>
+        <div class="lb-name" title="${escHtml(u.name)}"><a href="https://discord.com/users/${escHtml(u.name)}" target="_blank" rel="noopener">${escHtml(u.name)}</a></div>
+        ${tierTag}
+        <div class="lb-rays">☀️ ${u.rays}</div>
+      </div>
+    `;
+  }).join('');
+  
+  renderPagination();
 }
-.tier-holders-overlay.active .tier-holders-modal {
-  transform: scale(1) translateY(0);
+
+function renderPagination() {
+  const total = Math.ceil(allUsers.length / PAGE_SIZE);
+  const pg = document.getElementById('pagination');
+  if (total <= 1) { pg.innerHTML = ''; return; }
+  
+  let html = `<button class="page-btn" onclick="renderLeaderboard(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+  
+  const maxVisible = 7;
+  let startP = Math.max(1, currentPage - 3);
+  let endP = Math.min(total, startP + maxVisible - 1);
+  if (endP - startP < maxVisible - 1) startP = Math.max(1, endP - maxVisible + 1);
+  
+  if (startP > 1) html += `<button class="page-btn" onclick="renderLeaderboard(1)">1</button>${startP>2?'<span style="padding:0 4px;color:var(--muted)">…</span>':''}`;
+  for (let i = startP; i <= endP; i++) {
+    html += `<button class="page-btn ${i===currentPage?'active':''}" onclick="renderLeaderboard(${i})">${i}</button>`;
+  }
+  if (endP < total) html += `${endP<total-1?'<span style="padding:0 4px;color:var(--muted)">…</span>':''}<button class="page-btn" onclick="renderLeaderboard(${total})">${total}</button>`;
+  html += `<button class="page-btn" onclick="renderLeaderboard(${currentPage+1})" ${currentPage===total?'disabled':''}>›</button>`;
+  
+  pg.innerHTML = html;
 }
-.tier-holders-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
-  flex-shrink: 0;
+
+// ============================================================
+// TIER DISTRIBUTION - FIXED IMAGE PATHS
+// ============================================================
+function renderTierDistribution() {
+  const officialTiers = TIERS.filter(t => t.nft);
+  const newcomer = TIERS.find(t => !t.nft);
+  
+  const carousel = document.getElementById('tierCarousel');
+  
+  let cardsHtml = '';
+  
+  officialTiers.forEach(tier => {
+    const holders = allUsers.filter(u => u.rays >= tier.min && u.rays <= tier.max);
+    const topUsers = holders.slice(0, 3);
+    // Use tier.key directly - file names have spaces
+    const imgPath = tier.key + '.jpg';
+    cardsHtml += `
+      <div class="tier-card" style="border-color:${tier.color}40">
+        <div class="tier-img-wrap">
+          <img src="${imgPath}" alt="${tier.name}" loading="lazy" onerror="this.onerror=null;this.src='';this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;background:linear-gradient(135deg,${tier.color}20,${tier.color}05);display:flex;align-items:center;justify-content:center;font-size:32px\\'>☀️</div>'">
+        </div>
+        <div class="tier-info">
+          <div class="tier-name" style="color:${tier.color}">${tier.name}</div>
+          <div class="tier-range">${tier.min}${tier.max===Infinity?'+':('–'+tier.max)} Sunrays</div>
+          <div class="tier-count"><strong>${holders.length}</strong> holders</div>
+          ${topUsers.length > 0 ? `<div class="tier-top-users">${topUsers.map(u=>`<div class="tier-user" title="${escHtml(u.name)}">⚡ ${escHtml(u.name)}</div>`).join('')}</div>` : ''}
+          ${holders.length > 0 ? `<button class="tier-show-more-btn" onclick="openTierHoldersModal('${escHtml(tier.key).replace(/'/g,"\\'")}','${tier.color}')">Show All Holders</button>` : ''}
+        </div>
+      </div>
+    `;
+  });
+  
+  const duplicatedCards = cardsHtml;
+  carousel.innerHTML = cardsHtml + duplicatedCards;
+  
+  // Set up interactive carousel after populating
+  setupCarouselInteraction();
+
+  const newcomerHolders = allUsers.filter(u => u.rays >= newcomer.min && u.rays <= newcomer.max);
+  document.getElementById('newcomerBanner').innerHTML = `
+    <div class="newcomer-banner">
+      <img class="newcomer-img" src="Newcomer.jpg" alt="Newcomer" onerror="this.style.display='none'">
+      <div class="newcomer-info">
+        <div class="newcomer-title">🌱 Newcomer — Community Tier</div>
+        <div class="newcomer-note">Not an official NFT tier. Members with 1–4 sunrays are welcomed as Newcomers to the DAWN community. Keep participating to reach Trailblazer!</div>
+      </div>
+      <div class="newcomer-count">${newcomerHolders.length}<br><span style="font-size:12px;color:var(--muted)">members</span></div>
+      ${newcomerHolders.length > 0 ? `<button class="tier-show-more-btn" onclick="openTierHoldersModal('Newcomer','#4a7a6a')">Show All Holders</button>` : ''}
+    </div>
+  `;
 }
-.tier-holders-title {
-  font-family: 'Syne', sans-serif;
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 4px;
+
+// ============================================================
+// WEEKLY WINNERS - FIXED DATE FORMAT
+// ============================================================
+function parseDate(dateStr) {
+  if (!dateStr) return null;
+  try {
+    const d = new Date(dateStr.trim());
+    if (isNaN(d.getTime())) return null;
+    return d;
+  } catch (e) {
+    return null;
+  }
 }
-.tier-holders-count {
-  font-size: 13px;
-  color: var(--muted);
-  font-family: 'DM Mono', monospace;
+
+function formatDateWithOrdinal(date) {
+  const day = date.getDate();
+  const month = date.toLocaleDateString('en-US', { month: 'long' });
+  const suffix = getOrdinalSuffix(day);
+  return `${day}${suffix} ${month}`;
 }
-.tier-holders-close {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 20px;
-  line-height: 1;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+
+function getOrdinalSuffix(n) {
+  if (n > 3 && n < 21) return 'th';
+  switch (n % 10) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
+  }
 }
-.tier-holders-close:hover { color: var(--white); border-color: var(--orange); background: rgba(249,115,22,0.08); }
-.tier-holders-list {
-  overflow-y: auto;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-right: 4px;
+
+function formatDateShort(date) {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
-.tier-holders-list::-webkit-scrollbar { width: 4px; }
-.tier-holders-list::-webkit-scrollbar-track { background: transparent; }
-.tier-holders-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
-.tier-holder-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  transition: border-color 0.15s ease, background 0.15s ease;
+
+function processWeeklyData(data) {
+  if (!data || data.length === 0) {
+    document.getElementById('wwContent').innerHTML = '<div class="ww-empty">No weekly data available</div>';
+    document.getElementById('weekLabel').textContent = 'No weeks available';
+    document.getElementById('weekDateRange').textContent = '';
+    document.getElementById('prevWeek').disabled = true;
+    document.getElementById('nextWeek').disabled = true;
+    return;
+  }
+  
+  weeklyData = {};
+  data.forEach(r => {
+    const d = r.date ? r.date.trim() : '';
+    if (d) {
+      if (!weeklyData[d]) weeklyData[d] = [];
+      weeklyData[d].push(r);
+    }
+  });
+  
+  // Get unique dates and sort chronologically
+  const datesWithParsed = Object.keys(weeklyData)
+    .map(d => ({ original: d, parsed: parseDate(d) }))
+    .filter(d => d.parsed !== null)
+    .sort((a, b) => a.parsed - b.parsed);
+  
+  allWeeks = datesWithParsed.map(d => d.original);
+  
+  document.getElementById('statWeeks').textContent = allWeeks.length;
+  
+  currentWeekIndex = allWeeks.length - 1;
+  
+  renderWeeklyWinners();
 }
-.tier-holder-item:hover { border-color: var(--border2); background: var(--border); }
-.tier-holder-rank {
-  font-family: 'DM Mono', monospace;
-  font-size: 12px;
-  color: var(--muted);
-  min-width: 28px;
-  flex-shrink: 0;
+
+function changeWeek(dir) {
+  const newIdx = currentWeekIndex + dir;
+  if (newIdx < 0 || newIdx >= allWeeks.length) return;
+  currentWeekIndex = newIdx;
+  renderWeeklyWinners();
 }
-.tier-holder-name {
-  font-size: 14px;
-  font-weight: 500;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+
+function renderWeeklyWinners() {
+  if (allWeeks.length === 0) {
+    document.getElementById('wwContent').innerHTML = '<div class="ww-empty">No weekly data available</div>';
+    return;
+  }
+  
+  const weekDateStr = allWeeks[currentWeekIndex];
+  const entries = weeklyData[weekDateStr] || [];
+  
+  const currentDate = parseDate(weekDateStr);
+  
+  // Calculate week range: 7 days ending on the ceremony date
+  // Week of Xth February: data from (X-6) to X
+  let weekStart, weekEnd;
+  if (currentDate) {
+    weekEnd = new Date(currentDate);
+    weekStart = new Date(currentDate);
+    weekStart.setDate(weekStart.getDate() - 6);
+  }
+  
+  // Week label - ceremony name
+  const firstNote = entries[0]?.notes || '';
+  const ceremonyMatch = firstNote.match(/Ceremony\s+(\d+)/i);
+  const ceremonyNum = ceremonyMatch ? ceremonyMatch[1] : '';
+  
+  if (ceremonyNum) {
+    document.getElementById('weekLabel').textContent = `Sunrise Ceremony #${ceremonyNum}`;
+  } else {
+    document.getElementById('weekLabel').textContent = weekDateStr;
+  }
+  
+  // Date range display: "Week of 20th February" with range below
+  if (currentDate && weekStart && weekEnd) {
+    const weekOfText = `Week of ${formatDateWithOrdinal(currentDate)}`;
+    const rangeText = `${formatDateShort(weekStart)} → ${formatDateShort(weekEnd)}`;
+    document.getElementById('weekDateRange').innerHTML = `<div style="font-size:17px;font-weight:500;color:#d0ccc7;font-family:'Outfit',sans-serif;letter-spacing:0">${weekOfText}</div><div style="font-size:14px;color:#888;font-family:'DM Mono',monospace;letter-spacing:0.06em;margin-top:2px">${rangeText}</div>`;
+  } else {
+    document.getElementById('weekDateRange').textContent = weekDateStr;
+  }
+  
+  document.getElementById('prevWeek').disabled = currentWeekIndex === 0;
+  document.getElementById('nextWeek').disabled = currentWeekIndex === allWeeks.length - 1;
+  
+  if (entries.length === 0) {
+    document.getElementById('wwContent').innerHTML = '<div class="ww-empty">No data for this week</div>';
+    return;
+  }
+  
+  const cats = {};
+  entries.forEach(e => {
+    const t = e.type ? e.type.trim() : 'Other';
+    if (!cats[t]) cats[t] = [];
+    cats[t].push(e);
+  });
+  
+  let html = '<div class="ww-categories">';
+  Object.entries(cats).sort(([a],[b]) => a.localeCompare(b)).forEach(([cat, winners]) => {
+    const catLower = cat.toLowerCase();
+    let catType = 'other';
+    if (catLower.includes('arab') || catLower.includes('bangladesh') || catLower.includes('nigeria') || 
+        catLower.includes('vietnam') || catLower.includes('india') || catLower.includes('turkey') ||
+        catLower.includes('regional') || catLower.includes('local')) {
+      catType = 'regional';
+    } else if (catLower.includes('poker') || catLower.includes('chess') || catLower.includes('game')) {
+      catType = 'gaming';
+    } else if (catLower.includes('quiz') || catLower.includes('content')) {
+      catType = 'content';
+    } else if (catLower.includes('mvp') || catLower.includes('community')) {
+      catType = 'community';
+    } else if (catLower.includes('signal') || catLower.includes('sprint')) {
+      catType = 'signal';
+    }
+
+    html += `
+      <div class="ww-cat" data-category="${catType}">
+        <div class="ww-cat-title">${escHtml(cat)}</div>
+        <div class="ww-grid">
+          ${winners.map(w => `
+            <span class="ww-winner-tag" data-type="${escHtml(w.type || 'Other')}">
+              ☀️ <a href="https://discord.com/users/${escHtml(w.discord_name)}" target="_blank" rel="noopener">${escHtml(w.discord_name)}</a>
+              ${w.sun_rays > 1 ? `<span class="ww-rays">+${w.sun_rays}</span>` : ''}
+            </span>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  });
+  html += '</div>';
+  document.getElementById('wwContent').innerHTML = html;
 }
-.tier-holder-rays {
-  font-family: 'DM Mono', monospace;
-  font-size: 13px;
-  color: var(--orange);
-  flex-shrink: 0;
+
+// ============================================================
+// TIER GUIDE
+// ============================================================
+function buildTierGuide() {
+  const list = document.getElementById('tierGuideList');
+  if (!list) return;
+  list.innerHTML = TIERS.map(t => `
+    <div class="tlg-item">
+      <div class="tlg-dot" style="background:${t.color}"></div>
+      <div class="tlg-name">${t.name}</div>
+      <div class="tlg-rays">${t.min}${t.max===Infinity?'+':t.max===4?'–4':('–'+t.max)} ☀️</div>
+      ${t.nft ? '<span class="tlg-nft-badge">NFT</span>' : '<span class="tlg-nft-badge" style="color:var(--muted);background:rgba(100,100,100,0.1)">COMMUNITY</span>'}
+    </div>
+  `).join('');
 }
-.tier-show-more-btn {
-  display: block;
-  width: 100%;
-  margin-top: 10px;
-  padding: 7px 0;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--orange);
-  font-size: 12px;
-  font-weight: 600;
-  font-family: 'Outfit', sans-serif;
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+
+// ============================================================
+// SEARCH
+// ============================================================
+let searchTimeout;
+let selectedAcIdx = -1;
+
+function setupSearch() {
+  const input = document.getElementById('searchInput');
+  const acList = document.getElementById('acList');
+  const clearBtn = document.getElementById('searchClear');
+  
+  if (!input) return;
+  
+  input.addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    const val = input.value.trim();
+    if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
+    
+    if (!val) {
+      acList.style.display = 'none';
+      hideResult();
+      return;
+    }
+    searchTimeout = setTimeout(() => updateAutocomplete(val), 120);
+  });
+  
+  input.addEventListener('keydown', (e) => {
+    const items = acList.querySelectorAll('.ac-item');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedAcIdx = Math.min(selectedAcIdx + 1, items.length - 1);
+      updateAcActive(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedAcIdx = Math.max(selectedAcIdx - 1, -1);
+      updateAcActive(items);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedAcIdx >= 0 && items[selectedAcIdx]) {
+        items[selectedAcIdx].click();
+      } else {
+        searchUser(input.value.trim());
+      }
+    } else if (e.key === 'Escape') {
+      acList.style.display = 'none';
+    }
+  });
+  
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-wrapper')) {
+      acList.style.display = 'none';
+    }
+  });
 }
-.tier-show-more-btn:hover {
-  background: rgba(249,115,22,0.08);
-  border-color: rgba(249,115,22,0.4);
+
+function updateAcActive(items) {
+  items.forEach((it, i) => {
+    it.classList.toggle('active', i === selectedAcIdx);
+  });
 }
-@media(max-width:480px) {
-  .tier-holders-modal { padding: 20px; max-height: 85vh; }
-  .tier-holders-title { font-size: 17px; }
+
+function updateAutocomplete(query) {
+  const lq = query.toLowerCase();
+  const matches = allUsers.filter(u => u.name.toLowerCase().includes(lq)).slice(0, 8);
+  const acList = document.getElementById('acList');
+  
+  if (matches.length === 0) {
+    acList.style.display = 'none';
+    return;
+  }
+  
+  selectedAcIdx = -1;
+  acList.innerHTML = matches.map((u) => `
+    <div class="ac-item" onclick="selectUser('${escHtml(u.name).replace(/'/g,"\\'")}')">
+      <span class="ac-name">${highlightMatch(escHtml(u.name), query)}</span>
+      <span class="ac-rays">☀️ ${u.rays}</span>
+    </div>
+  `).join('');
+  acList.style.display = 'block';
 }
+
+function highlightMatch(text, query) {
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx < 0) return text;
+  return text.slice(0,idx) + '<strong style="color:var(--orange)">' + text.slice(idx, idx+query.length) + '</strong>' + text.slice(idx+query.length);
+}
+
+function selectUser(name) {
+  document.getElementById('searchInput').value = name;
+  document.getElementById('acList').style.display = 'none';
+  document.getElementById('searchClear').style.display = 'block';
+  searchUser(name);
+}
+
+function searchUser(name) {
+  const lname = name.toLowerCase();
+  const user = allUsers.find(u => u.name.toLowerCase() === lname);
+  document.getElementById('acList').style.display = 'none';
+  
+  if (!user) {
+    document.getElementById('resultCard').style.display = 'none';
+    document.getElementById('noResult').style.display = 'block';
+    return;
+  }
+  document.getElementById('noResult').style.display = 'none';
+  renderUserCard(user);
+}
+
+function renderUserCard(user) {
+  const card = document.getElementById('resultCard');
+  card.style.display = 'block';
+  currentCardUser = user;
+  
+  const tierIdx = TIERS.findIndex(t => t === user.tier);
+  const prevTier = tierIdx > 0 ? TIERS[tierIdx - 1] : null;
+  let progressHtml = '';
+  if (prevTier) {
+    const progress = Math.min(100, Math.round(((user.rays - user.tier.min) / (prevTier.min - user.tier.min)) * 100));
+    progressHtml = `
+      <div class="progress-section">
+        <div class="progress-labels">
+          <span>Progress to ${prevTier.name}</span>
+          <span>${user.rays} / ${prevTier.min} ☀️</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
+      </div>
+    `;
+  }
+  
+  let activityHtml = '';
+  const userWins = [];
+  Object.values(weeklyData).flat().forEach(w => {
+    if (w.discord_name && w.discord_name.toLowerCase() === user.name.toLowerCase()) {
+      userWins.push(w);
+    }
+  });
+  
+  if (userWins.length > 0) {
+    // Group by type for summary counts
+    const catCounts = {};
+    userWins.forEach(w => {
+      const t = w.type ? w.type.trim() : 'Other';
+      catCounts[t] = (catCounts[t] || 0) + 1;
+    });
+    // ALL categories sorted by count desc — no slice
+    const allCats = Object.entries(catCounts).sort((a,b) => b[1]-a[1]);
+    const totalRays = userWins.reduce((s, w) => s + (w.sun_rays || 1), 0);
+
+    // Sort individual wins newest-first (by date string, best effort)
+    const sortedWins = [...userWins].sort((a,b) => {
+      const da = parseFloat(a.date) || 0;
+      const db = parseFloat(b.date) || 0;
+      return db - da;
+    });
+
+    const summaryBadges = allCats.map(([cat,n]) =>
+      `<span class="activity-tag">${escHtml(cat)} <span style="color:var(--orange)">×${n}</span></span>`
+    ).join('');
+
+    const detailRows = sortedWins.map(w =>
+      `<div class="activity-win-row">
+        <span class="activity-win-type">☀️ ${escHtml(w.type || 'Other')}</span>
+        ${w.date ? `<span class="activity-win-date">${escHtml(w.date)}</span>` : ''}
+        ${w.sun_rays > 1 ? `<span class="activity-win-rays">+${w.sun_rays} ☀️</span>` : ''}
+      </div>`
+    ).join('');
+
+    activityHtml = `
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em">Activity Breakdown</div>
+          <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">${userWins.length} events · ${totalRays} ☀️</div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${summaryBadges}</div>
+        <div class="activity-breakdown-scroll">${detailRows}</div>
+      </div>
+    `;
+  } else {
+    activityHtml = `
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Activity Breakdown</div>
+        <div style="font-size:13px;color:var(--muted)">No activity records found yet. Start participating in ceremonies to earn sunrays!</div>
+      </div>
+    `;
+  }
+  
+  card.innerHTML = `
+    <div class="rc-header">
+      <div class="rc-username"><a href="https://discord.com/users/${escHtml(user.name)}" target="_blank" rel="noopener">${escHtml(user.name)}</a></div>
+      <span class="rc-tier-badge" style="background:${user.tier.color}15;color:${user.tier.color};border:1px solid ${user.tier.color}30">
+        ☀️ ${user.tier.name}
+      </span>
+    </div>
+    <div class="rc-stats">
+      <div class="rc-stat">
+        <div class="rc-stat-val">${user.rays}</div>
+        <div class="rc-stat-lbl">Sunrays</div>
+      </div>
+      <div class="rc-stat">
+        <div class="rc-stat-val">#${user.rank}</div>
+        <div class="rc-stat-lbl">Global Rank</div>
+      </div>
+      <div class="rc-stat">
+        <div class="rc-stat-val">${Math.round((1 - (user.rank-1)/allUsers.length)*100)}%</div>
+        <div class="rc-stat-lbl">Percentile</div>
+      </div>
+    </div>
+    ${progressHtml}
+    ${activityHtml}
+    <div class="rc-share-btns">
+      <button class="rc-share-btn primary" onclick="generateProfileCard()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        Generate Card
+      </button>
+      <a class="rc-share-btn" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out my DAWN Sunrays stats! ${user.rays} ☀️ | Rank #${user.rank} | ${user.tier.name}`)}&url=${encodeURIComponent(SITE_URL)}" target="_blank">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        Share on X
+      </a>
+    </div>
+  `;
+}
+
+function hideResult() {
+  document.getElementById('resultCard').style.display = 'none';
+  document.getElementById('noResult').style.display = 'none';
+  currentCardUser = null;
+}
+
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchClear').style.display = 'none';
+  document.getElementById('acList').style.display = 'none';
+  hideResult();
+  document.getElementById('searchInput').focus();
+}
+
+// ============================================================
+// PROFILE CARD GENERATOR - FIXED HEADER SPACING
+// ============================================================
+function generateProfileCard() {
+  if (!currentCardUser) return;
+  
+  const canvas = document.getElementById('profileCanvas');
+  const ctx = canvas.getContext('2d');
+  const user = currentCardUser;
+  
+  const w = 800;
+  const h = 450;
+  
+  ctx.clearRect(0, 0, w, h);
+  
+  // Background gradient
+  const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+  bgGrad.addColorStop(0, '#0e0e0e');
+  bgGrad.addColorStop(0.5, '#121212');
+  bgGrad.addColorStop(1, '#0a0a0a');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, w, h);
+  
+  // Decorative gradient orb
+  const orbGrad = ctx.createRadialGradient(600, 100, 0, 600, 100, 300);
+  orbGrad.addColorStop(0, 'rgba(249, 115, 22, 0.15)');
+  orbGrad.addColorStop(0.5, 'rgba(249, 115, 22, 0.05)');
+  orbGrad.addColorStop(1, 'transparent');
+  ctx.fillStyle = orbGrad;
+  ctx.fillRect(0, 0, w, h);
+  
+  // Border
+  ctx.strokeStyle = 'rgba(249, 115, 22, 0.3)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, w - 2, h - 2);
+  
+  // Inner glow border
+  ctx.shadowColor = 'rgba(249, 115, 22, 0.2)';
+  ctx.shadowBlur = 20;
+  ctx.strokeRect(8, 8, w - 16, h - 16);
+  ctx.shadowBlur = 0;
+  
+  // Header bar
+  ctx.fillStyle = 'rgba(249, 115, 22, 0.1)';
+  ctx.fillRect(0, 0, w, 80);
+  
+  // Logo/Brand - FIXED: Better spacing and positioning
+  // Draw sun icon
+  ctx.font = '24px serif';
+  ctx.fillStyle = '#f97316';
+  ctx.textAlign = 'left';
+  ctx.fillText('☀️', 30, 50);
+  
+  // DAWN text - positioned after sun icon
+  ctx.font = 'bold 26px Syne, sans-serif';
+  ctx.fillStyle = '#f97316';
+  ctx.fillText('DAWN', 65, 50);
+  
+  // Sunrays Tracker text - with proper spacing from DAWN
+  ctx.fillStyle = '#888';
+  ctx.font = '500 13px Outfit, sans-serif';
+  ctx.fillText('SUNRAYS TRACKER', 180, 50);
+  
+  // Username
+  ctx.fillStyle = '#f5f0eb';
+  ctx.font = 'bold 42px Syne, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(user.name, w / 2, 170);
+  
+  // Tier badge background
+  const tierColor = user.tier.color;
+  ctx.fillStyle = tierColor + '20';
+  ctx.strokeStyle = tierColor + '50';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(w / 2 - 100, 195, 200, 36, 18);
+  ctx.fill();
+  ctx.stroke();
+  
+  // Tier text
+  ctx.fillStyle = tierColor;
+  ctx.font = '600 16px Outfit, sans-serif';
+  ctx.fillText(`☀️ ${user.tier.name}`, w / 2, 220);
+  
+  // Stats section
+  const statY = 300;
+  const statSpacing = 200;
+  const startX = w / 2 - statSpacing;
+  
+  const stats = [
+    { label: 'SUNRAYS', value: user.rays.toString() },
+    { label: 'GLOBAL RANK', value: `#${user.rank}` },
+    { label: 'PERCENTILE', value: `${Math.round((1 - (user.rank-1)/allUsers.length)*100)}%` }
+  ];
+  
+  stats.forEach((stat, i) => {
+    const x = startX + i * statSpacing;
+    
+    ctx.fillStyle = 'rgba(22, 22, 22, 0.8)';
+    ctx.strokeStyle = 'rgba(42, 42, 42, 0.8)';
+    ctx.beginPath();
+    ctx.roundRect(x - 70, statY - 50, 140, 100, 10);
+    ctx.fill();
+    ctx.stroke();
+    
+    ctx.fillStyle = '#f97316';
+    ctx.font = 'bold 36px "DM Mono", monospace';
+    ctx.fillText(stat.value, x, statY + 5);
+    
+    ctx.fillStyle = '#6b6b6b';
+    ctx.font = '500 11px Outfit, sans-serif';
+    ctx.fillText(stat.label, x, statY + 30);
+  });
+  
+  // Footer
+  ctx.fillStyle = 'rgba(249, 115, 22, 0.08)';
+  ctx.fillRect(0, h - 50, w, 50);
+  
+  ctx.fillStyle = '#666';
+  ctx.font = '500 12px Outfit, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('dawn-sunrays-checker.vercel.app', 30, h - 20);
+  
+  ctx.fillStyle = '#f97316';
+  ctx.textAlign = 'right';
+  ctx.fillText('created by bunnyy', w - 30, h - 20);
+  
+  document.getElementById('cardModal').classList.add('active');
+}
+
+function closeCardModal(event) {
+  if (!event || event.target === document.getElementById('cardModal')) {
+    document.getElementById('cardModal').classList.remove('active');
+  }
+}
+
+function downloadCard() {
+  const canvas = document.getElementById('profileCanvas');
+  const link = document.createElement('a');
+  link.download = `dawn-sunrays-${currentCardUser?.name || 'card'}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function shareCard() {
+  if (!currentCardUser) return;
+  const user = currentCardUser;
+  const text = encodeURIComponent(`Check out my DAWN Sunrays stats! ☀️ ${user.rays} sunrays | Rank #${user.rank} | ${user.tier.name}`);
+  const url = encodeURIComponent(SITE_URL);
+  window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+}
+
+// ============================================================
+// TIER HOLDERS MODAL
+// ============================================================
+function openTierHoldersModal(tierKey, color) {
+  const tier = TIERS.find(t => t.key === tierKey);
+  if (!tier) return;
+
+  const holders = allUsers.filter(u => u.rays >= tier.min && u.rays <= tier.max);
+
+  document.getElementById('tierHoldersTitle').textContent = tier.name + ' Holders';
+  document.getElementById('tierHoldersTitle').style.color = color || 'var(--white)';
+  document.getElementById('tierHoldersCount').textContent = holders.length + ' member' + (holders.length !== 1 ? 's' : '');
+
+  const list = document.getElementById('tierHoldersList');
+  if (holders.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:14px">No holders yet</div>';
+  } else {
+    list.innerHTML = holders.map((u, i) => `
+      <div class="tier-holder-item">
+        <span class="tier-holder-rank">#${u.rank}</span>
+        <span class="tier-holder-name">⚡ ${escHtml(u.name)}</span>
+        <span class="tier-holder-rays">☀️ ${u.rays}</span>
+      </div>
+    `).join('');
+  }
+
+  const overlay = document.getElementById('tierHoldersModal');
+  overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeTierHoldersModal(event) {
+  if (!event || event.target === document.getElementById('tierHoldersModal')) {
+    document.getElementById('tierHoldersModal').classList.remove('active');
+    document.body.style.overflow = '';
+  }
+}
+
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ============================================================
+// CAROUSEL - DRAG/TOUCH INTERACTION
+// ============================================================
+let carouselAnimId = null;
+let carouselTranslate = 0;
+let carouselIsPaused = false;
+let carouselIsDragging = false;
+let carouselDragStartX = 0;
+let carouselDragStartTranslate = 0;
+
+function setupCarouselInteraction() {
+  const carousel = document.getElementById('tierCarousel');
+  if (!carousel) return;
+
+  // Cancel any previous animation
+  if (carouselAnimId) cancelAnimationFrame(carouselAnimId);
+
+  // Remove CSS animation — we drive via JS
+  carousel.style.animation = 'none';
+  carousel.style.transition = 'none';
+
+  const speed = 0.5; // px per frame
+
+  function getHalfWidth() {
+    return carousel.scrollWidth / 2;
+  }
+
+  function tick() {
+    if (!carouselIsPaused && !carouselIsDragging) {
+      carouselTranslate -= speed;
+      const hw = getHalfWidth();
+      if (hw > 0 && Math.abs(carouselTranslate) >= hw) {
+        carouselTranslate += hw;
+      }
+    }
+    carousel.style.transform = `translateX(${carouselTranslate}px)`;
+    carouselAnimId = requestAnimationFrame(tick);
+  }
+
+  carouselTranslate = 0;
+  carouselAnimId = requestAnimationFrame(tick);
+
+  let resumeTimer = null;
+
+  function onDragStart(x) {
+    carouselIsDragging = true;
+    carouselDragStartX = x;
+    carouselDragStartTranslate = carouselTranslate;
+    carousel.classList.add('is-dragging');
+    clearTimeout(resumeTimer);
+  }
+
+  function onDragMove(x) {
+    if (!carouselIsDragging) return;
+    carouselTranslate = carouselDragStartTranslate + (x - carouselDragStartX);
+  }
+
+  function onDragEnd() {
+    if (!carouselIsDragging) return;
+    carouselIsDragging = false;
+    carousel.classList.remove('is-dragging');
+    resumeTimer = setTimeout(() => { carouselIsPaused = false; }, 800);
+  }
+
+  // Pause on hover (desktop only)
+  carousel.addEventListener('mouseenter', () => {
+    if (!carouselIsDragging) {
+      carouselIsPaused = true;
+      clearTimeout(resumeTimer);
+    }
+  });
+  carousel.addEventListener('mouseleave', () => {
+    if (!carouselIsDragging) {
+      resumeTimer = setTimeout(() => { carouselIsPaused = false; }, 200);
+    }
+  });
+
+  // Mouse drag
+  carousel.addEventListener('mousedown', e => {
+    e.preventDefault();
+    onDragStart(e.clientX);
+  });
+  window.addEventListener('mousemove', e => {
+    if (carouselIsDragging) onDragMove(e.clientX);
+  });
+  window.addEventListener('mouseup', onDragEnd);
+
+  // Touch drag
+  carousel.addEventListener('touchstart', e => {
+    onDragStart(e.touches[0].clientX);
+  }, { passive: true });
+  carousel.addEventListener('touchmove', e => {
+    if (carouselIsDragging) onDragMove(e.touches[0].clientX);
+  }, { passive: true });
+  carousel.addEventListener('touchend', onDragEnd);
+}
+
+function toggleNav() {
+  const nav = document.getElementById('navLinks');
+  const toggle = document.querySelector('.nav-toggle');
+  nav.classList.toggle('open');
+  toggle.classList.toggle('active');
+  if (nav.classList.contains('open')) {
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.body.style.overflow = '';
+  }
+}
+
+function closeNav() {
+  const nav = document.getElementById('navLinks');
+  const toggle = document.querySelector('.nav-toggle');
+  nav.classList.remove('open');
+  if (toggle) toggle.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+// ============================================================
+// START
+// ============================================================
+// Close nav when clicking outside
+document.addEventListener('click', (e) => {
+  const nav = document.getElementById('navLinks');
+  const toggle = document.querySelector('.nav-toggle');
+  if (nav && nav.classList.contains('open') && 
+      !nav.contains(e.target) && 
+      !toggle.contains(e.target)) {
+    closeNav();
+  }
+});
+
+// Close nav on escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeNav();
+    closeTierHoldersModal();
+  }
+});
+
+document.addEventListener('DOMContentLoaded', init);
