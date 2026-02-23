@@ -831,7 +831,7 @@ function generateProfileCard() {
   
   ctx.fillStyle = '#f97316';
   ctx.textAlign = 'right';
-  ctx.fillText('created by bunnyy', w - 30, h - 20);
+  ctx.fillText('created by Bunnyyxtan', w - 30, h - 20);
   
   document.getElementById('cardModal').classList.add('active');
 }
