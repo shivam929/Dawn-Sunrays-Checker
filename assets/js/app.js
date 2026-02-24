@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const SITE_URL = 'https://dawn-sunrays-checker.vercel.app';
+const SITE_URL = 'https://dawnrank.xyz';
 
 const TIERS = [
   { name: 'Dawn Ascendant', min: 35, max: Infinity, key: 'Dawn Ascendant', nft: true, color: '#f97316' },
@@ -824,10 +824,10 @@ function generateProfileCard() {
   ctx.fillStyle = 'rgba(249, 115, 22, 0.08)';
   ctx.fillRect(0, h - 50, w, 50);
   
-  ctx.fillStyle = '#666';
-  ctx.font = '500 12px Outfit, sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.font = '600 16px Outfit, sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText('dawn-sunrays-checker.vercel.app', 30, h - 20);
+  ctx.fillText('www.dawnrank.xyz', 30, h - 20);
   
   ctx.fillStyle = '#f97316';
   ctx.textAlign = 'right';
