@@ -5,17 +5,38 @@ const SITE_URL = 'https://dawnrank.xyz';
 
 const TIERS = [
   { name: 'Dawn Ascendant', min: 35, max: Infinity, key: 'Dawn Ascendant', nft: true, color: '#f97316' },
-  { name: 'Solar Sentinel',  min: 30, max: 34, key: 'Solar Sentinel',  nft: true, color: '#d4a843' },
+  { name: 'Solar Sentinel', min: 30, max: 34, key: 'Solar Sentinel', nft: true, color: '#d4a843' },
   { name: 'Keeper of the Flame', min: 25, max: 29, key: 'Keeper of the Flame', nft: true, color: '#cd7f32' },
-  { name: 'Luminary',  min: 20, max: 24, key: 'Luminary',  nft: true, color: '#c87840' },
+  { name: 'Luminary', min: 20, max: 24, key: 'Luminary', nft: true, color: '#c87840' },
   { name: 'Architect', min: 15, max: 19, key: 'Architect', nft: true, color: '#6496c8' },
-  { name: 'Beacon',    min: 10, max: 14, key: 'Beacon',    nft: true, color: '#5082b4' },
+  { name: 'Beacon', min: 10, max: 14, key: 'Beacon', nft: true, color: '#5082b4' },
   { name: 'Trailblazer', min: 5, max: 9, key: 'Trailblazer', nft: true, color: '#3c6ea0' },
-  { name: 'Newcomer',   min: 1, max: 4,  key: 'Newcomer',   nft: false, color: '#4a7a6a' },
+  { name: 'Newcomer', min: 1, max: 4, key: 'Newcomer', nft: false, color: '#4a7a6a' },
 ];
 
 function getTier(rays) {
-  return TIERS.find(t => rays >= t.min && rays <= t.max) || TIERS[TIERS.length-1];
+  return TIERS.find(t => rays >= t.min && rays <= t.max) || TIERS[TIERS.length - 1];
+}
+
+// ============================================================
+// CREATOR BADGE & PERCENTILE HELPERS
+// ============================================================
+const CREATOR_USERNAME = 'notyour_bunnyy';
+
+function isCreator(name) {
+  return name && name.toLowerCase() === CREATOR_USERNAME;
+}
+
+function creatorBadgeHtml() {
+  return '<span class="creator-badge">creator</span>';
+}
+
+function calcPercentile(rank, total) {
+  if (!total || total <= 0) return 0;
+  if (total === 1) return 100;
+  // Percentile = percentage of users BELOW this user
+  // Formula: ((total - rank) / total) * 100
+  return Math.round(((total - rank) / total) * 100);
 }
 
 // ============================================================
@@ -39,10 +60,10 @@ async function init() {
   await loadImages();
   buildTierGuide();
   setupSearch();
-  
+
   // Start auto-refresh for all data
   startAutoRefresh();
-  
+
   // Initial data load
   await loadAllData();
 }
@@ -51,7 +72,7 @@ function startAutoRefresh() {
   // Initial loads
   loadWeeklyData();
   loadSunraysData();
-  
+
   // Set up intervals for auto-refresh every 60 seconds
   weeklyRefreshInterval = setInterval(loadWeeklyData, 60000);
   sunraysRefreshInterval = setInterval(loadSunraysData, 60000);
@@ -77,13 +98,13 @@ async function loadSunraysData() {
     const res = await fetch(`./all_sunrays.json?ts=${Date.now()}`);
     if (!res.ok) throw new Error('Failed to fetch sunrays data');
     const data = await res.json();
-    
+
     // Process ALL users from JSON - no limits, no slicing
     const formattedData = data.map(u => ({
       discord_name: u['Discord Name'],
       sun_rays: u['Sun Rays']
     }));
-    
+
     processSunraysData(formattedData);
     return data;
   } catch (e) {
@@ -98,11 +119,11 @@ async function loadWeeklyData() {
     const res = await fetch(`./weekly_winners.json?ts=${Date.now()}`);
     if (!res.ok) throw new Error('Failed to fetch weekly data');
     const data = await res.json();
-    
+
     // Only update if data changed
     const dataStr = JSON.stringify(data);
     const cachedStr = JSON.stringify(weeklyJsonData);
-    
+
     if (dataStr !== cachedStr) {
       weeklyJsonData = data;
       const formattedData = data.map(w => ({
@@ -114,7 +135,7 @@ async function loadWeeklyData() {
       }));
       processWeeklyData(formattedData);
     }
-    
+
     return data;
   } catch (e) {
     console.warn('Weekly data refresh failed:', e);
@@ -155,23 +176,24 @@ function processSunraysData(data) {
     showError('lbBody', 'No data available');
     return;
   }
-  
+
   // Process ALL users - no limits
+  const total = data.length;
   allUsers = data.map((u, i) => ({
     name: u.discord_name,
     rays: u.sun_rays,
     rank: i + 1,
-    tier: getTier(u.sun_rays)
+    tier: getTier(u.sun_rays),
+    percentile: calcPercentile(i + 1, total)
   }));
-  
-  const total = allUsers.length;
+
   const maxRays = allUsers[0]?.rays || 0;
   const nftHolders = allUsers.filter(u => u.rays >= 5).length;
-  
+
   document.getElementById('statTotal').textContent = total.toLocaleString();
   document.getElementById('statMaxRays').textContent = maxRays.toLocaleString();
   document.getElementById('statNFT').textContent = nftHolders.toLocaleString();
-  
+
   renderLeaderboard(currentPage);
   renderTierDistribution();
 }
@@ -184,32 +206,32 @@ function renderLeaderboard(page) {
   const start = (page - 1) * PAGE_SIZE;
   const end = start + PAGE_SIZE;
   const pageUsers = allUsers.slice(start, end);
-  
+
   const body = document.getElementById('lbBody');
   if (pageUsers.length === 0) {
     body.innerHTML = '<div class="loader">No data available</div>';
     return;
   }
-  
-  const medals = ['🥇','🥈','🥉'];
+
+  const medals = ['🥇', '🥈', '🥉'];
   body.innerHTML = pageUsers.map((u, i) => {
     const absRank = start + i + 1;
     let rankClass = '';
     if (absRank === 1) rankClass = 'top1';
     else if (absRank === 2) rankClass = 'top2';
     else if (absRank === 3) rankClass = 'top3';
-    const medal = absRank <= 3 ? `<span class="lb-medal">${medals[absRank-1]}</span>` : '';
+    const medal = absRank <= 3 ? `<span class="lb-medal">${medals[absRank - 1]}</span>` : '';
     const tierTag = `<span class="lb-tier-tag" style="background:${u.tier.color}18;color:${u.tier.color};border:1px solid ${u.tier.color}30">${u.tier.name}</span>`;
     return `
       <div class="lb-row">
-        <div class="lb-rank ${rankClass}">${medal || '#'+absRank}</div>
-        <div class="lb-name" title="${escHtml(u.name)}"><a href="https://discord.com/users/${escHtml(u.name)}" target="_blank" rel="noopener">${escHtml(u.name)}</a></div>
+        <div class="lb-rank ${rankClass}">${medal || '#' + absRank}</div>
+        <div class="lb-name" title="${escHtml(u.name)}"><a href="https://discord.com/users/${escHtml(u.name)}" target="_blank" rel="noopener">${escHtml(u.name)}</a>${isCreator(u.name) ? creatorBadgeHtml() : ''}</div>
         ${tierTag}
         <div class="lb-rays">☀️ ${u.rays}</div>
       </div>
     `;
   }).join('');
-  
+
   renderPagination();
 }
 
@@ -217,21 +239,21 @@ function renderPagination() {
   const total = Math.ceil(allUsers.length / PAGE_SIZE);
   const pg = document.getElementById('pagination');
   if (total <= 1) { pg.innerHTML = ''; return; }
-  
-  let html = `<button class="page-btn" onclick="renderLeaderboard(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
-  
+
+  let html = `<button class="page-btn" onclick="renderLeaderboard(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹</button>`;
+
   const maxVisible = 7;
   let startP = Math.max(1, currentPage - 3);
   let endP = Math.min(total, startP + maxVisible - 1);
   if (endP - startP < maxVisible - 1) startP = Math.max(1, endP - maxVisible + 1);
-  
-  if (startP > 1) html += `<button class="page-btn" onclick="renderLeaderboard(1)">1</button>${startP>2?'<span style="padding:0 4px;color:var(--muted)">…</span>':''}`;
+
+  if (startP > 1) html += `<button class="page-btn" onclick="renderLeaderboard(1)">1</button>${startP > 2 ? '<span style="padding:0 4px;color:var(--muted)">…</span>' : ''}`;
   for (let i = startP; i <= endP; i++) {
-    html += `<button class="page-btn ${i===currentPage?'active':''}" onclick="renderLeaderboard(${i})">${i}</button>`;
+    html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="renderLeaderboard(${i})">${i}</button>`;
   }
-  if (endP < total) html += `${endP<total-1?'<span style="padding:0 4px;color:var(--muted)">…</span>':''}<button class="page-btn" onclick="renderLeaderboard(${total})">${total}</button>`;
-  html += `<button class="page-btn" onclick="renderLeaderboard(${currentPage+1})" ${currentPage===total?'disabled':''}>›</button>`;
-  
+  if (endP < total) html += `${endP < total - 1 ? '<span style="padding:0 4px;color:var(--muted)">…</span>' : ''}<button class="page-btn" onclick="renderLeaderboard(${total})">${total}</button>`;
+  html += `<button class="page-btn" onclick="renderLeaderboard(${currentPage + 1})" ${currentPage === total ? 'disabled' : ''}>›</button>`;
+
   pg.innerHTML = html;
 }
 
@@ -241,11 +263,11 @@ function renderPagination() {
 function renderTierDistribution() {
   const officialTiers = TIERS.filter(t => t.nft);
   const newcomer = TIERS.find(t => !t.nft);
-  
+
   const carousel = document.getElementById('tierCarousel');
-  
+
   let cardsHtml = '';
-  
+
   officialTiers.forEach(tier => {
     const holders = allUsers.filter(u => u.rays >= tier.min && u.rays <= tier.max);
     const topUsers = holders.slice(0, 3);
@@ -258,18 +280,18 @@ function renderTierDistribution() {
         </div>
         <div class="tier-info">
           <div class="tier-name" style="color:${tier.color}">${tier.name}</div>
-          <div class="tier-range">${tier.min}${tier.max===Infinity?'+':('–'+tier.max)} Sunrays</div>
+          <div class="tier-range">${tier.min}${tier.max === Infinity ? '+' : ('–' + tier.max)} Sunrays</div>
           <div class="tier-count"><strong>${holders.length}</strong> holders</div>
-          ${topUsers.length > 0 ? `<div class="tier-top-users">${topUsers.map(u=>`<div class="tier-user" title="${escHtml(u.name)}">⚡ ${escHtml(u.name)}</div>`).join('')}</div>` : ''}
-          ${holders.length > 0 ? `<button class="tier-show-more-btn" onclick="openTierHoldersModal('${escHtml(tier.key).replace(/'/g,"\\'")}','${tier.color}')">Show All Holders</button>` : ''}
+          ${topUsers.length > 0 ? `<div class="tier-top-users">${topUsers.map(u => `<div class="tier-user" title="${escHtml(u.name)}">⚡ ${escHtml(u.name)}</div>`).join('')}</div>` : ''}
+          ${holders.length > 0 ? `<button class="tier-show-more-btn" onclick="openTierHoldersModal('${escHtml(tier.key).replace(/'/g, "\\'")}','${tier.color}')">Show All Holders</button>` : ''}
         </div>
       </div>
     `;
   });
-  
+
   const duplicatedCards = cardsHtml;
   carousel.innerHTML = cardsHtml + duplicatedCards;
-  
+
   // Set up interactive carousel after populating
   setupCarouselInteraction();
 
@@ -331,7 +353,7 @@ function processWeeklyData(data) {
     document.getElementById('nextWeek').disabled = true;
     return;
   }
-  
+
   weeklyData = {};
   data.forEach(r => {
     const d = r.date ? r.date.trim() : '';
@@ -340,19 +362,19 @@ function processWeeklyData(data) {
       weeklyData[d].push(r);
     }
   });
-  
+
   // Get unique dates and sort chronologically
   const datesWithParsed = Object.keys(weeklyData)
     .map(d => ({ original: d, parsed: parseDate(d) }))
     .filter(d => d.parsed !== null)
     .sort((a, b) => a.parsed - b.parsed);
-  
+
   allWeeks = datesWithParsed.map(d => d.original);
-  
+
   document.getElementById('statWeeks').textContent = allWeeks.length;
-  
+
   currentWeekIndex = allWeeks.length - 1;
-  
+
   renderWeeklyWinners();
 }
 
@@ -368,12 +390,12 @@ function renderWeeklyWinners() {
     document.getElementById('wwContent').innerHTML = '<div class="ww-empty">No weekly data available</div>';
     return;
   }
-  
+
   const weekDateStr = allWeeks[currentWeekIndex];
   const entries = weeklyData[weekDateStr] || [];
-  
+
   const currentDate = parseDate(weekDateStr);
-  
+
   // Calculate week range: 7 days ending on the ceremony date
   // Week of Xth February: data from (X-6) to X
   let weekStart, weekEnd;
@@ -382,18 +404,18 @@ function renderWeeklyWinners() {
     weekStart = new Date(currentDate);
     weekStart.setDate(weekStart.getDate() - 6);
   }
-  
+
   // Week label - ceremony name
   const firstNote = entries[0]?.notes || '';
   const ceremonyMatch = firstNote.match(/Ceremony\s+(\d+)/i);
   const ceremonyNum = ceremonyMatch ? ceremonyMatch[1] : '';
-  
+
   if (ceremonyNum) {
     document.getElementById('weekLabel').textContent = `Sunrise Ceremony #${ceremonyNum}`;
   } else {
     document.getElementById('weekLabel').textContent = weekDateStr;
   }
-  
+
   // Date range display: "Week of 20th February" with range below
   if (currentDate && weekStart && weekEnd) {
     const weekOfText = `Week of ${formatDateWithOrdinal(currentDate)}`;
@@ -402,29 +424,29 @@ function renderWeeklyWinners() {
   } else {
     document.getElementById('weekDateRange').textContent = weekDateStr;
   }
-  
+
   document.getElementById('prevWeek').disabled = currentWeekIndex === 0;
   document.getElementById('nextWeek').disabled = currentWeekIndex === allWeeks.length - 1;
-  
+
   if (entries.length === 0) {
     document.getElementById('wwContent').innerHTML = '<div class="ww-empty">No data for this week</div>';
     return;
   }
-  
+
   const cats = {};
   entries.forEach(e => {
     const t = e.type ? e.type.trim() : 'Other';
     if (!cats[t]) cats[t] = [];
     cats[t].push(e);
   });
-  
+
   let html = '<div class="ww-categories">';
-  Object.entries(cats).sort(([a],[b]) => a.localeCompare(b)).forEach(([cat, winners]) => {
+  Object.entries(cats).sort(([a], [b]) => a.localeCompare(b)).forEach(([cat, winners]) => {
     const catLower = cat.toLowerCase();
     let catType = 'other';
-    if (catLower.includes('arab') || catLower.includes('bangladesh') || catLower.includes('nigeria') || 
-        catLower.includes('vietnam') || catLower.includes('india') || catLower.includes('turkey') ||
-        catLower.includes('regional') || catLower.includes('local')) {
+    if (catLower.includes('arab') || catLower.includes('bangladesh') || catLower.includes('nigeria') ||
+      catLower.includes('vietnam') || catLower.includes('india') || catLower.includes('turkey') ||
+      catLower.includes('regional') || catLower.includes('local')) {
       catType = 'regional';
     } else if (catLower.includes('poker') || catLower.includes('chess') || catLower.includes('game')) {
       catType = 'gaming';
@@ -442,7 +464,7 @@ function renderWeeklyWinners() {
         <div class="ww-grid">
           ${winners.map(w => `
             <span class="ww-winner-tag" data-type="${escHtml(w.type || 'Other')}">
-              ☀️ <a href="https://discord.com/users/${escHtml(w.discord_name)}" target="_blank" rel="noopener">${escHtml(w.discord_name)}</a>
+              ☀️ <a href="https://discord.com/users/${escHtml(w.discord_name)}" target="_blank" rel="noopener">${escHtml(w.discord_name)}</a>${isCreator(w.discord_name) ? creatorBadgeHtml() : ''}
               ${w.sun_rays > 1 ? `<span class="ww-rays">+${w.sun_rays}</span>` : ''}
             </span>
           `).join('')}
@@ -464,7 +486,7 @@ function buildTierGuide() {
     <div class="tlg-item">
       <div class="tlg-dot" style="background:${t.color}"></div>
       <div class="tlg-name">${t.name}</div>
-      <div class="tlg-rays">${t.min}${t.max===Infinity?'+':t.max===4?'–4':('–'+t.max)} ☀️</div>
+      <div class="tlg-rays">${t.min}${t.max === Infinity ? '+' : t.max === 4 ? '–4' : ('–' + t.max)} ☀️</div>
       ${t.nft ? '<span class="tlg-nft-badge">NFT</span>' : '<span class="tlg-nft-badge" style="color:var(--muted);background:rgba(100,100,100,0.1)">COMMUNITY</span>'}
     </div>
   `).join('');
@@ -480,14 +502,14 @@ function setupSearch() {
   const input = document.getElementById('searchInput');
   const acList = document.getElementById('acList');
   const clearBtn = document.getElementById('searchClear');
-  
+
   if (!input) return;
-  
+
   input.addEventListener('input', () => {
     clearTimeout(searchTimeout);
     const val = input.value.trim();
     if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
-    
+
     if (!val) {
       acList.style.display = 'none';
       hideResult();
@@ -495,7 +517,7 @@ function setupSearch() {
     }
     searchTimeout = setTimeout(() => updateAutocomplete(val), 120);
   });
-  
+
   input.addEventListener('keydown', (e) => {
     const items = acList.querySelectorAll('.ac-item');
     if (e.key === 'ArrowDown') {
@@ -517,7 +539,7 @@ function setupSearch() {
       acList.style.display = 'none';
     }
   });
-  
+
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.search-wrapper')) {
       acList.style.display = 'none';
@@ -535,16 +557,16 @@ function updateAutocomplete(query) {
   const lq = query.toLowerCase();
   const matches = allUsers.filter(u => u.name.toLowerCase().includes(lq)).slice(0, 8);
   const acList = document.getElementById('acList');
-  
+
   if (matches.length === 0) {
     acList.style.display = 'none';
     return;
   }
-  
+
   selectedAcIdx = -1;
   acList.innerHTML = matches.map((u) => `
-    <div class="ac-item" onclick="selectUser('${escHtml(u.name).replace(/'/g,"\\'")}')">
-      <span class="ac-name">${highlightMatch(escHtml(u.name), query)}</span>
+    <div class="ac-item" onclick="selectUser('${escHtml(u.name).replace(/'/g, "\\'")}')">
+      <span class="ac-name">${highlightMatch(u.name, query)}${isCreator(u.name) ? ' ' + creatorBadgeHtml() : ''}</span>
       <span class="ac-rays">☀️ ${u.rays}</span>
     </div>
   `).join('');
@@ -553,8 +575,11 @@ function updateAutocomplete(query) {
 
 function highlightMatch(text, query) {
   const idx = text.toLowerCase().indexOf(query.toLowerCase());
-  if (idx < 0) return text;
-  return text.slice(0,idx) + '<strong style="color:var(--orange)">' + text.slice(idx, idx+query.length) + '</strong>' + text.slice(idx+query.length);
+  if (idx < 0) return escHtml(text);
+  const before = escHtml(text.slice(0, idx));
+  const match = escHtml(text.slice(idx, idx + query.length));
+  const after = escHtml(text.slice(idx + query.length));
+  return before + '<span class="ac-highlight">' + match + '</span>' + after;
 }
 
 function selectUser(name) {
@@ -568,7 +593,7 @@ function searchUser(name) {
   const lname = name.toLowerCase();
   const user = allUsers.find(u => u.name.toLowerCase() === lname);
   document.getElementById('acList').style.display = 'none';
-  
+
   if (!user) {
     document.getElementById('resultCard').style.display = 'none';
     document.getElementById('noResult').style.display = 'block';
@@ -582,7 +607,7 @@ function renderUserCard(user) {
   const card = document.getElementById('resultCard');
   card.style.display = 'block';
   currentCardUser = user;
-  
+
   const tierIdx = TIERS.findIndex(t => t === user.tier);
   const prevTier = tierIdx > 0 ? TIERS[tierIdx - 1] : null;
   let progressHtml = '';
@@ -598,7 +623,7 @@ function renderUserCard(user) {
       </div>
     `;
   }
-  
+
   let activityHtml = '';
   const userWins = [];
   Object.values(weeklyData).flat().forEach(w => {
@@ -606,7 +631,7 @@ function renderUserCard(user) {
       userWins.push(w);
     }
   });
-  
+
   if (userWins.length > 0) {
     // Group by type for summary counts
     const catCounts = {};
@@ -615,17 +640,17 @@ function renderUserCard(user) {
       catCounts[t] = (catCounts[t] || 0) + 1;
     });
     // ALL categories sorted by count desc — no slice
-    const allCats = Object.entries(catCounts).sort((a,b) => b[1]-a[1]);
+    const allCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
     const totalRays = userWins.reduce((s, w) => s + (w.sun_rays || 1), 0);
 
     // Sort individual wins newest-first (by date string, best effort)
-    const sortedWins = [...userWins].sort((a,b) => {
+    const sortedWins = [...userWins].sort((a, b) => {
       const da = parseFloat(a.date) || 0;
       const db = parseFloat(b.date) || 0;
       return db - da;
     });
 
-    const summaryBadges = allCats.map(([cat,n]) =>
+    const summaryBadges = allCats.map(([cat, n]) =>
       `<span class="activity-tag">${escHtml(cat)} <span style="color:var(--orange)">×${n}</span></span>`
     ).join('');
 
@@ -655,10 +680,10 @@ function renderUserCard(user) {
       </div>
     `;
   }
-  
+
   card.innerHTML = `
     <div class="rc-header">
-      <div class="rc-username"><a href="https://discord.com/users/${escHtml(user.name)}" target="_blank" rel="noopener">${escHtml(user.name)}</a></div>
+      <div class="rc-username"><a href="https://discord.com/users/${escHtml(user.name)}" target="_blank" rel="noopener">${escHtml(user.name)}</a>${isCreator(user.name) ? creatorBadgeHtml() : ''}</div>
       <span class="rc-tier-badge" style="background:${user.tier.color}15;color:${user.tier.color};border:1px solid ${user.tier.color}30">
         ☀️ ${user.tier.name}
       </span>
@@ -673,7 +698,7 @@ function renderUserCard(user) {
         <div class="rc-stat-lbl">Global Rank</div>
       </div>
       <div class="rc-stat">
-        <div class="rc-stat-val">${Math.round((1 - (user.rank-1)/allUsers.length)*100)}%</div>
+        <div class="rc-stat-val">${user.percentile != null ? user.percentile : calcPercentile(user.rank, allUsers.length)}%</div>
         <div class="rc-stat-lbl">Percentile</div>
       </div>
     </div>
@@ -711,16 +736,16 @@ function clearSearch() {
 // ============================================================
 function generateProfileCard() {
   if (!currentCardUser) return;
-  
+
   const canvas = document.getElementById('profileCanvas');
   const ctx = canvas.getContext('2d');
   const user = currentCardUser;
-  
+
   const w = 800;
   const h = 450;
-  
+
   ctx.clearRect(0, 0, w, h);
-  
+
   // Background gradient
   const bgGrad = ctx.createLinearGradient(0, 0, w, h);
   bgGrad.addColorStop(0, '#0e0e0e');
@@ -728,7 +753,7 @@ function generateProfileCard() {
   bgGrad.addColorStop(1, '#0a0a0a');
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, w, h);
-  
+
   // Decorative gradient orb
   const orbGrad = ctx.createRadialGradient(600, 100, 0, 600, 100, 300);
   orbGrad.addColorStop(0, 'rgba(249, 115, 22, 0.15)');
@@ -736,45 +761,66 @@ function generateProfileCard() {
   orbGrad.addColorStop(1, 'transparent');
   ctx.fillStyle = orbGrad;
   ctx.fillRect(0, 0, w, h);
-  
+
   // Border
   ctx.strokeStyle = 'rgba(249, 115, 22, 0.3)';
   ctx.lineWidth = 2;
   ctx.strokeRect(1, 1, w - 2, h - 2);
-  
+
   // Inner glow border
   ctx.shadowColor = 'rgba(249, 115, 22, 0.2)';
   ctx.shadowBlur = 20;
   ctx.strokeRect(8, 8, w - 16, h - 16);
   ctx.shadowBlur = 0;
-  
+
   // Header bar
   ctx.fillStyle = 'rgba(249, 115, 22, 0.1)';
   ctx.fillRect(0, 0, w, 80);
-  
+
   // Logo/Brand - FIXED: Better spacing and positioning
   // Draw sun icon
   ctx.font = '24px serif';
   ctx.fillStyle = '#f97316';
   ctx.textAlign = 'left';
   ctx.fillText('☀️', 30, 50);
-  
+
   // DAWN text - positioned after sun icon
   ctx.font = 'bold 26px Syne, sans-serif';
   ctx.fillStyle = '#f97316';
   ctx.fillText('DAWN', 65, 50);
-  
+
   // Sunrays Tracker text - with proper spacing from DAWN
   ctx.fillStyle = '#888';
   ctx.font = '500 13px Outfit, sans-serif';
   ctx.fillText('SUNRAYS TRACKER', 180, 50);
-  
+
   // Username
   ctx.fillStyle = '#f5f0eb';
   ctx.font = 'bold 42px Syne, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText(user.name, w / 2, 170);
-  
+
+  // Creator label on canvas
+  if (isCreator(user.name)) {
+    const nameWidth = ctx.measureText(user.name).width;
+    const badgeText = 'creator';
+    ctx.font = '600 13px Outfit, sans-serif';
+    const badgeW = ctx.measureText(badgeText).width + 16;
+    const badgeX = w / 2 + nameWidth / 2 + 10;
+    const badgeY = 153;
+    ctx.fillStyle = 'rgba(255, 107, 0, 0.15)';
+    ctx.strokeStyle = 'rgba(255, 107, 0, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, 22, 11);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#FF6B00';
+    ctx.textAlign = 'left';
+    ctx.fillText(badgeText, badgeX + 8, badgeY + 16);
+    ctx.textAlign = 'center';
+  }
+
   // Tier badge background
   const tierColor = user.tier.color;
   ctx.fillStyle = tierColor + '20';
@@ -784,55 +830,55 @@ function generateProfileCard() {
   ctx.roundRect(w / 2 - 100, 195, 200, 36, 18);
   ctx.fill();
   ctx.stroke();
-  
+
   // Tier text
   ctx.fillStyle = tierColor;
   ctx.font = '600 16px Outfit, sans-serif';
   ctx.fillText(`☀️ ${user.tier.name}`, w / 2, 220);
-  
+
   // Stats section
   const statY = 300;
   const statSpacing = 200;
   const startX = w / 2 - statSpacing;
-  
+
   const stats = [
     { label: 'SUNRAYS', value: user.rays.toString() },
     { label: 'GLOBAL RANK', value: `#${user.rank}` },
-    { label: 'PERCENTILE', value: `${Math.round((1 - (user.rank-1)/allUsers.length)*100)}%` }
+    { label: 'PERCENTILE', value: `${user.percentile != null ? user.percentile : calcPercentile(user.rank, allUsers.length)}%` }
   ];
-  
+
   stats.forEach((stat, i) => {
     const x = startX + i * statSpacing;
-    
+
     ctx.fillStyle = 'rgba(22, 22, 22, 0.8)';
     ctx.strokeStyle = 'rgba(42, 42, 42, 0.8)';
     ctx.beginPath();
     ctx.roundRect(x - 70, statY - 50, 140, 100, 10);
     ctx.fill();
     ctx.stroke();
-    
+
     ctx.fillStyle = '#f97316';
     ctx.font = 'bold 36px "DM Mono", monospace';
     ctx.fillText(stat.value, x, statY + 5);
-    
+
     ctx.fillStyle = '#6b6b6b';
     ctx.font = '500 11px Outfit, sans-serif';
     ctx.fillText(stat.label, x, statY + 30);
   });
-  
+
   // Footer
   ctx.fillStyle = 'rgba(249, 115, 22, 0.08)';
   ctx.fillRect(0, h - 50, w, 50);
-  
+
   ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
   ctx.font = '600 16px Outfit, sans-serif';
   ctx.textAlign = 'left';
   ctx.fillText('www.dawnrank.xyz', 30, h - 20);
-  
+
   ctx.fillStyle = '#f97316';
   ctx.textAlign = 'right';
   ctx.fillText('created by Bunnyyxtan', w - 30, h - 20);
-  
+
   document.getElementById('cardModal').classList.add('active');
 }
 
@@ -878,7 +924,7 @@ function openTierHoldersModal(tierKey, color) {
     list.innerHTML = holders.map((u, i) => `
       <div class="tier-holder-item">
         <span class="tier-holder-rank">#${u.rank}</span>
-        <span class="tier-holder-name">⚡ ${escHtml(u.name)}</span>
+        <span class="tier-holder-name">⚡ ${escHtml(u.name)}${isCreator(u.name) ? ' ' + creatorBadgeHtml() : ''}</span>
         <span class="tier-holder-rays">☀️ ${u.rays}</span>
       </div>
     `).join('');
@@ -898,7 +944,7 @@ function closeTierHoldersModal(event) {
 
 
 function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // ============================================================
@@ -1025,9 +1071,9 @@ function closeNav() {
 document.addEventListener('click', (e) => {
   const nav = document.getElementById('navLinks');
   const toggle = document.querySelector('.nav-toggle');
-  if (nav && nav.classList.contains('open') && 
-      !nav.contains(e.target) && 
-      !toggle.contains(e.target)) {
+  if (nav && nav.classList.contains('open') &&
+    !nav.contains(e.target) &&
+    !toggle.contains(e.target)) {
     closeNav();
   }
 });
