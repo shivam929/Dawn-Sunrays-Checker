@@ -388,7 +388,7 @@ function processWeeklyData(data) {
 function buildWeeklyUserMap(data) {
   weeklyUserMap = new Map();
 
-  data.forEach(entry => {
+  data.forEach((entry, idx) => {
     // Skip null/invalid entries
     if (!entry || !entry.discord_name) return;
 
@@ -414,7 +414,8 @@ function buildWeeklyUserMap(data) {
       type: type,
       date: dateStr,
       sunrays: sunrays,
-      parsedDate: parsedDate
+      parsedDate: parsedDate,
+      rowIndex: idx + 2  // Sheet row = JSON index + 2 (row 1 is header)
     });
   });
 
@@ -741,11 +742,14 @@ function renderUserCard(user) {
     ${progressHtml}
     ${activityHtml}
     <div class="rc-verify-data">
-      <a href="https://docs.google.com/spreadsheets/d/1x59HQrMS_KqnRmJYLd4Hk7j1VmVur7pLRTGIdsqcK7s/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer" class="verify-data-btn">
+      <button class="verify-data-btn" onclick="openVerifyModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Verify Full Breakdown
+      </button>
+      <a href="https://docs.google.com/spreadsheets/d/1x59HQrMS_KqnRmJYLd4Hk7j1VmVur7pLRTGIdsqcK7s/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer" class="verify-docs-btn">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        Verify Data
+        View Official Docs
       </a>
-      <span class="verify-data-hint">Cross-check your data with official records</span>
     </div>
     <div class="rc-share-btns">
       <button class="rc-share-btn primary" onclick="generateProfileCard()">
@@ -1068,6 +1072,49 @@ function openTierHoldersModal(tierKey, color) {
 function closeTierHoldersModal(event) {
   if (!event || event.target === document.getElementById('tierHoldersModal')) {
     document.getElementById('tierHoldersModal').classList.remove('active');
+    document.body.style.overflow = '';
+  }
+}
+
+// ============================================================
+// VERIFY ACTIVITY MODAL
+// ============================================================
+function openVerifyModal() {
+  if (!currentCardUser) return;
+
+  const userKey = currentCardUser.name.trim().toLowerCase();
+  const userData = weeklyUserMap.get(userKey);
+  const list = document.getElementById('verifyEventList');
+  const SHEET_BASE = 'https://docs.google.com/spreadsheets/d/1x59HQrMS_KqnRmJYLd4Hk7j1VmVur7pLRTGIdsqcK7s/edit#gid=0';
+
+  if (!userData || userData.history.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:14px">No activity records found for this user.</div>';
+  } else {
+    list.innerHTML = userData.history.map(w => {
+      const hasRow = w.rowIndex && w.rowIndex > 1;
+      const sheetUrl = hasRow ? `${SHEET_BASE}&range=A${w.rowIndex}:E${w.rowIndex}` : '#';
+      return `
+        <div class="verify-event-row">
+          <div class="verify-event-info">
+            <span class="verify-event-name">☀️ ${escHtml(w.type)}</span>
+            ${w.date ? `<span class="verify-event-date">${escHtml(w.date)}</span>` : ''}
+          </div>
+          ${hasRow
+          ? `<a href="${sheetUrl}" target="_blank" rel="noopener noreferrer" class="verify-event-link">View on Docs</a>`
+          : `<span class="verify-event-link disabled">Not Available</span>`
+        }
+        </div>`;
+    }).join('');
+  }
+
+  const overlay = document.getElementById('verifyModal');
+  overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeVerifyModal(event) {
+  if (!event || event.target === document.getElementById('verifyModal')) {
+    document.getElementById('verifyModal').classList.remove('active');
     document.body.style.overflow = '';
   }
 }
