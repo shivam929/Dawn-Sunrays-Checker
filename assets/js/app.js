@@ -3,6 +3,13 @@
 // ============================================================
 const SITE_URL = 'https://dawnrank.xyz';
 
+// Google Sheets live data config
+const SHEET_ID = '1x59HQrMS_KqnRmJYLd4Hk7j1VmVur7pLRTGIdsqcK7s';
+const LEADERBOARD_GID = '755342143';
+const WEEKLY_GID = '0';
+const SHEETS_CSV_BASE = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`;
+const AUTO_REFRESH_MS = 60000; // 60 seconds
+
 const TIERS = [
   { name: 'Dawn Ascendant', min: 35, max: Infinity, key: 'Dawn Ascendant', nft: true, color: '#f97316' },
   { name: 'Solar Sentinel', min: 30, max: 34, key: 'Solar Sentinel', nft: true, color: '#d4a843' },
@@ -53,6 +60,8 @@ let weeklyUserMap = new Map();
 let currentCardUser = null;
 let weeklyRefreshInterval = null;
 let sunraysRefreshInterval = null;
+let lastSyncTime = null;
+let syncTimerInterval = null;
 
 // ============================================================
 // INIT
@@ -74,9 +83,34 @@ function startAutoRefresh() {
   loadWeeklyData();
   loadSunraysData();
 
-  // Set up intervals for auto-refresh every 60 seconds
-  weeklyRefreshInterval = setInterval(loadWeeklyData, 60000);
-  sunraysRefreshInterval = setInterval(loadSunraysData, 60000);
+  // Set up intervals for auto-refresh
+  weeklyRefreshInterval = setInterval(loadWeeklyData, AUTO_REFRESH_MS);
+  sunraysRefreshInterval = setInterval(loadSunraysData, AUTO_REFRESH_MS);
+
+  // Start the sync timestamp ticker
+  startSyncTimer();
+}
+
+function updateSyncTimestamp() {
+  lastSyncTime = Date.now();
+  const el = document.getElementById('liveSyncTime');
+  if (el) el.textContent = 'Last updated: just now';
+}
+
+function startSyncTimer() {
+  if (syncTimerInterval) clearInterval(syncTimerInterval);
+  syncTimerInterval = setInterval(() => {
+    if (!lastSyncTime) return;
+    const el = document.getElementById('liveSyncTime');
+    if (!el) return;
+    const secAgo = Math.floor((Date.now() - lastSyncTime) / 1000);
+    if (secAgo < 60) {
+      el.textContent = 'Last updated: just now';
+    } else {
+      const min = Math.floor(secAgo / 60);
+      el.textContent = `Last updated: ${min} min ago`;
+    }
+  }, 10000); // update every 10 seconds
 }
 
 async function loadAllData() {
@@ -92,55 +126,158 @@ async function loadAllData() {
 }
 
 // ============================================================
-// DATA FETCHING - COMPLETE DATA FROM JSON
+// CSV PARSER - Parses Google Sheets CSV export to JSON array
+// ============================================================
+function parseCSV(csvText) {
+  const lines = csvText.split('\n');
+  if (lines.length < 2) return [];
+
+  // Parse a single CSV line respecting quoted fields
+  function parseLine(line) {
+    const fields = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"' && i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++; // skip escaped quote
+        } else if (ch === '"') {
+          inQuotes = false;
+        } else {
+          current += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ',') {
+          fields.push(current);
+          current = '';
+        } else if (ch === '\r') {
+          // skip carriage return
+        } else {
+          current += ch;
+        }
+      }
+    }
+    fields.push(current);
+    return fields;
+  }
+
+  const headers = parseLine(lines[0]);
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const values = parseLine(lines[i]);
+    const obj = {};
+    headers.forEach((h, idx) => {
+      obj[h.trim()] = values[idx] !== undefined ? values[idx].trim() : '';
+    });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+// ============================================================
+// DATA FETCHING - LIVE FROM GOOGLE SHEETS (CSV)
 // ============================================================
 async function loadSunraysData() {
   try {
-    const res = await fetch(`./all_sunrays.json?ts=${Date.now()}`);
-    if (!res.ok) throw new Error('Failed to fetch sunrays data');
-    const data = await res.json();
+    // Try Google Sheets first
+    const url = `${SHEETS_CSV_BASE}&gid=${LEADERBOARD_GID}&_ts=${Date.now()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Sheets fetch failed: ${res.status}`);
+    const csvText = await res.text();
+    const data = parseCSV(csvText);
+    if (!data || data.length === 0) throw new Error('Empty data from Sheets');
 
-    // Process ALL users from JSON - no limits, no slicing
     const formattedData = data.map(u => ({
-      discord_name: u['Discord Name'],
-      sun_rays: u['Sun Rays']
-    }));
+      discord_name: u['Discord Name'] || '',
+      sun_rays: parseInt(u['Sun Rays'], 10) || 0
+    })).filter(u => u.discord_name);
 
     processSunraysData(formattedData);
-    return data;
-  } catch (e) {
-    console.error('Sunrays data fetch failed:', e);
-    showError('lbBody', 'Failed to load leaderboard data');
-    return null;
+    updateSyncTimestamp();
+    console.log(`[Live] Leaderboard loaded: ${formattedData.length} users from Google Sheets`);
+    return formattedData;
+  } catch (sheetErr) {
+    console.warn('Google Sheets leaderboard fetch failed, falling back to local JSON:', sheetErr);
+    // Fallback to local JSON
+    try {
+      const res = await fetch(`./all_sunrays.json?ts=${Date.now()}`);
+      if (!res.ok) throw new Error('Local JSON fallback also failed');
+      const data = await res.json();
+      const formattedData = data.map(u => ({
+        discord_name: u['Discord Name'],
+        sun_rays: u['Sun Rays']
+      }));
+      processSunraysData(formattedData);
+      console.log(`[Fallback] Leaderboard loaded: ${formattedData.length} users from local JSON`);
+      return formattedData;
+    } catch (localErr) {
+      console.error('All leaderboard data sources failed:', localErr);
+      showError('lbBody', 'Failed to load leaderboard data');
+      return null;
+    }
   }
 }
 
 async function loadWeeklyData() {
   try {
-    const res = await fetch(`./weekly_winners.json?ts=${Date.now()}`);
-    if (!res.ok) throw new Error('Failed to fetch weekly data');
-    const data = await res.json();
+    // Try Google Sheets first
+    const url = `${SHEETS_CSV_BASE}&gid=${WEEKLY_GID}&_ts=${Date.now()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Sheets fetch failed: ${res.status}`);
+    const csvText = await res.text();
+    const data = parseCSV(csvText);
+    if (!data || data.length === 0) throw new Error('Empty data from Sheets');
 
-    // Only update if data changed
+    // Only update if data actually changed
     const dataStr = JSON.stringify(data);
     const cachedStr = JSON.stringify(weeklyJsonData);
 
     if (dataStr !== cachedStr) {
       weeklyJsonData = data;
       const formattedData = data.map(w => ({
-        date: w['Date'],
-        discord_name: w['Discord Name'],
-        type: w['Type'],
-        sun_rays: w['Sun Rays'],
-        notes: w['Notes']
-      }));
+        date: w['Date'] || '',
+        discord_name: w['Discord Name'] || '',
+        type: w['Type'] || '',
+        sun_rays: parseInt(w['Sun Rays'], 10) || 0,
+        notes: w['Notes'] || ''
+      })).filter(w => w.discord_name);
       processWeeklyData(formattedData);
+      updateSyncTimestamp();
+      console.log(`[Live] Weekly winners loaded: ${formattedData.length} entries from Google Sheets`);
     }
-
     return data;
-  } catch (e) {
-    console.warn('Weekly data refresh failed:', e);
-    return null;
+  } catch (sheetErr) {
+    console.warn('Google Sheets weekly fetch failed, falling back to local JSON:', sheetErr);
+    // Fallback to local JSON
+    try {
+      const res = await fetch(`./weekly_winners.json?ts=${Date.now()}`);
+      if (!res.ok) throw new Error('Local JSON fallback also failed');
+      const data = await res.json();
+      const dataStr = JSON.stringify(data);
+      const cachedStr = JSON.stringify(weeklyJsonData);
+      if (dataStr !== cachedStr) {
+        weeklyJsonData = data;
+        const formattedData = data.map(w => ({
+          date: w['Date'],
+          discord_name: w['Discord Name'],
+          type: w['Type'],
+          sun_rays: w['Sun Rays'],
+          notes: w['Notes']
+        }));
+        processWeeklyData(formattedData);
+        console.log(`[Fallback] Weekly winners loaded from local JSON`);
+      }
+      return data;
+    } catch (localErr) {
+      console.warn('All weekly data sources failed:', localErr);
+      return null;
+    }
   }
 }
 
