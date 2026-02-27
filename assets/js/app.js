@@ -49,6 +49,7 @@ let currentWeekIndex = 0;
 const PAGE_SIZE = 25;
 let currentPage = 1;
 let weeklyJsonData = null;
+let weeklyUserMap = new Map();
 let currentCardUser = null;
 let weeklyRefreshInterval = null;
 let sunraysRefreshInterval = null;
@@ -375,7 +376,56 @@ function processWeeklyData(data) {
 
   currentWeekIndex = allWeeks.length - 1;
 
+  // Preprocess into structured user map for accurate breakdowns
+  buildWeeklyUserMap(data);
+
   renderWeeklyWinners();
+}
+
+// ============================================================
+// PREPROCESS WEEKLY JSON → STRUCTURED USER MAP
+// ============================================================
+function buildWeeklyUserMap(data) {
+  weeklyUserMap = new Map();
+
+  data.forEach(entry => {
+    // Skip null/invalid entries
+    if (!entry || !entry.discord_name) return;
+
+    const rawName = entry.discord_name;
+    const key = rawName.trim().toLowerCase();
+    const type = entry.type ? entry.type.trim() : 'Other';
+    const sunrays = entry.sun_rays || 0;
+    const dateStr = entry.date ? entry.date.trim() : '';
+    const parsedDate = parseDate(dateStr);
+
+    if (!weeklyUserMap.has(key)) {
+      weeklyUserMap.set(key, {
+        totalSunrays: 0,
+        events: {},
+        history: []
+      });
+    }
+
+    const userData = weeklyUserMap.get(key);
+    userData.totalSunrays += sunrays;
+    userData.events[type] = (userData.events[type] || 0) + 1;
+    userData.history.push({
+      type: type,
+      date: dateStr,
+      sunrays: sunrays,
+      parsedDate: parsedDate
+    });
+  });
+
+  // Sort each user's history newest-first by parsed date
+  weeklyUserMap.forEach(userData => {
+    userData.history.sort((a, b) => {
+      const da = a.parsedDate ? a.parsedDate.getTime() : 0;
+      const db = b.parsedDate ? b.parsedDate.getTime() : 0;
+      return db - da;
+    });
+  });
 }
 
 function changeWeek(dir) {
@@ -624,41 +674,27 @@ function renderUserCard(user) {
     `;
   }
 
+  // --- Activity Breakdown: use preprocessed weeklyUserMap for 100% accuracy ---
   let activityHtml = '';
-  const userWins = [];
-  Object.values(weeklyData).flat().forEach(w => {
-    if (w.discord_name && w.discord_name.toLowerCase() === user.name.toLowerCase()) {
-      userWins.push(w);
-    }
-  });
+  const userKey = user.name.trim().toLowerCase();
+  const userData = weeklyUserMap.get(userKey);
 
-  if (userWins.length > 0) {
-    // Group by type for summary counts
-    const catCounts = {};
-    userWins.forEach(w => {
-      const t = w.type ? w.type.trim() : 'Other';
-      catCounts[t] = (catCounts[t] || 0) + 1;
-    });
-    // ALL categories sorted by count desc — no slice
-    const allCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
-    const totalRays = userWins.reduce((s, w) => s + (w.sun_rays || 1), 0);
-
-    // Sort individual wins newest-first (by date string, best effort)
-    const sortedWins = [...userWins].sort((a, b) => {
-      const da = parseFloat(a.date) || 0;
-      const db = parseFloat(b.date) || 0;
-      return db - da;
-    });
+  if (userData && userData.history.length > 0) {
+    // Category counts from preprocessed map (already deduplicated, counted exactly once)
+    const allCats = Object.entries(userData.events).sort((a, b) => b[1] - a[1]);
+    const totalEvents = userData.history.length;
+    const totalRays = userData.totalSunrays;
 
     const summaryBadges = allCats.map(([cat, n]) =>
       `<span class="activity-tag">${escHtml(cat)} <span style="color:var(--orange)">×${n}</span></span>`
     ).join('');
 
-    const detailRows = sortedWins.map(w =>
+    // History already sorted newest-first by parsed Date in buildWeeklyUserMap
+    const detailRows = userData.history.map(w =>
       `<div class="activity-win-row">
-        <span class="activity-win-type">☀️ ${escHtml(w.type || 'Other')}</span>
+        <span class="activity-win-type">☀️ ${escHtml(w.type)}</span>
         ${w.date ? `<span class="activity-win-date">${escHtml(w.date)}</span>` : ''}
-        ${w.sun_rays > 1 ? `<span class="activity-win-rays">+${w.sun_rays} ☀️</span>` : ''}
+        ${w.sunrays > 1 ? `<span class="activity-win-rays">+${w.sunrays} ☀️</span>` : ''}
       </div>`
     ).join('');
 
@@ -666,7 +702,7 @@ function renderUserCard(user) {
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap">
           <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em">Activity Breakdown</div>
-          <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">${userWins.length} events · ${totalRays} ☀️</div>
+          <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">${totalEvents} events · ${totalRays} ☀️</div>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${summaryBadges}</div>
         <div class="activity-breakdown-scroll">${detailRows}</div>
@@ -704,15 +740,22 @@ function renderUserCard(user) {
     </div>
     ${progressHtml}
     ${activityHtml}
+    <div class="rc-verify-data">
+      <a href="https://docs.google.com/spreadsheets/d/1x59HQrMS_KqnRmJYLd4Hk7j1VmVur7pLRTGIdsqcK7s/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer" class="verify-data-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Verify Data
+      </a>
+      <span class="verify-data-hint">Cross-check your data with official records</span>
+    </div>
     <div class="rc-share-btns">
       <button class="rc-share-btn primary" onclick="generateProfileCard()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
         Generate Card
       </button>
-      <a class="rc-share-btn" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out my DAWN Sunrays stats! ${user.rays} ☀️ | Rank #${user.rank} | ${user.tier.name}`)}&url=${encodeURIComponent(SITE_URL)}" target="_blank">
+      <button class="rc-share-btn" onclick="generateAndShareOnX()">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
         Share on X
-      </a>
+      </button>
     </div>
   `;
 }
@@ -898,10 +941,97 @@ function downloadCard() {
 
 function shareCard() {
   if (!currentCardUser) return;
+  generateAndCopyCard(true);
+}
+
+// ============================================================
+// PREMIUM SHARE SYSTEM
+// ============================================================
+function getShareText(user) {
+  return `I just checked my DAWN Sunrays progress ☀️\nRank: #${user.rank} globally\nSunrays: ${user.rays}\nTier: ${user.tier.name}\n\nTrack yours here 👇\nhttps://dawnrank.xyz`;
+}
+
+function openTwitterShare(user) {
+  const text = encodeURIComponent(getShareText(user));
+  window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+}
+
+async function generateAndShareOnX() {
+  if (!currentCardUser) return;
   const user = currentCardUser;
-  const text = encodeURIComponent(`Check out my DAWN Sunrays stats! ☀️ ${user.rays} sunrays | Rank #${user.rank} | ${user.tier.name}`);
-  const url = encodeURIComponent(SITE_URL);
-  window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+
+  // Generate the card first
+  generateProfileCard();
+
+  // Copy card to clipboard, then open Twitter
+  await generateAndCopyCard(false);
+  openTwitterShare(user);
+}
+
+async function generateAndCopyCard(openTwitterAfter) {
+  if (!currentCardUser) return;
+  const user = currentCardUser;
+  const canvas = document.getElementById('profileCanvas');
+
+  try {
+    await copyCanvasToClipboard(canvas);
+    showToast('success', 'Card copied. Ready to paste on X');
+    if (openTwitterAfter) {
+      openTwitterShare(user);
+    }
+  } catch (err) {
+    console.warn('Clipboard copy failed:', err);
+    showToast('warn', "Couldn't copy image. Downloading instead...");
+    downloadCard();
+    if (openTwitterAfter) {
+      openTwitterShare(user);
+    }
+  }
+}
+
+function copyCanvasToClipboard(canvas) {
+  return new Promise((resolve, reject) => {
+    if (!navigator.clipboard || !navigator.clipboard.write) {
+      return reject(new Error('Clipboard API not supported'));
+    }
+    canvas.toBlob(async (blob) => {
+      if (!blob) return reject(new Error('Failed to create blob'));
+      try {
+        const item = new ClipboardItem({ 'image/png': blob });
+        await navigator.clipboard.write([item]);
+        resolve();
+      } catch (e) {
+        reject(e);
+      }
+    }, 'image/png');
+  });
+}
+
+// ============================================================
+// TOAST NOTIFICATION
+// ============================================================
+let toastTimeout = null;
+
+function showToast(type, message) {
+  // Remove existing toast
+  const existing = document.querySelector('.dawn-toast');
+  if (existing) existing.remove();
+  clearTimeout(toastTimeout);
+
+  const icon = type === 'success' ? '✔' : '⚠';
+  const toast = document.createElement('div');
+  toast.className = `dawn-toast dawn-toast-${type}`;
+  toast.innerHTML = `<span class="dawn-toast-icon">${icon}</span><span class="dawn-toast-msg">${message}</span>`;
+  document.body.appendChild(toast);
+
+  // Trigger entrance
+  requestAnimationFrame(() => toast.classList.add('visible'));
+
+  // Auto-dismiss
+  toastTimeout = setTimeout(() => {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
 }
 
 // ============================================================
