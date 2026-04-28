@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DAWN Sunrays Tracker</title>
+
+  <!-- ═══════════════════════════════════════════════
+     FAVICON — Full browser & device coverage
+     All files live in the same folder as index.html
+     ═══════════════════════════════════════════════ -->
+  <!-- Official DAWN SVG — crisp at any resolution, Chrome/Firefox/Edge -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <!-- PNG fallbacks for Safari + older browsers -->
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+  <!-- Apple home screen -->
+  <link rel="apple-touch-icon" sizes="180x180" href="favicon-180x180.png">
+  <!-- Android Chrome -->
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192x192.png">
+  <!-- ICO fallback for legacy browsers -->
+  <link rel="shortcut icon" href="favicon.ico">
+
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <base target="_blank">
+</head>
+
+<body>
+
+  <!-- NAVBAR -->
+  <nav>
+    <div class="nav-inner">
+      <a href="#hero" target="_self" class="nav-logo">
+        <img id="navLogo" src="" alt="DAWN">
+        <span>DAWN Sunrays</span>
+      </a>
+      <button class="nav-toggle" onclick="toggleNav()" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#hero" target="_self" onclick="closeNav()">Sunrays Checker</a></li>
+        <li><a href="#leaderboard" target="_self" onclick="closeNav()">Global Leaderboard</a></li>
+        <li><a href="#tiers" target="_self" onclick="closeNav()">Tier Distribution</a></li>
+        <li><a href="#weekly" target="_self" onclick="closeNav()">Weekly Winners</a></li>
+        <li><a href="#guide" target="_self" onclick="closeNav()">Sunrays Guide</a></li>
+        <!-- Mobile-only credits — hidden on desktop via CSS -->
+        <li class="nav-li-credits">
+          <a href="https://magiceden.io/marketplace/gc9syubdmyfrulfbtbv2ke1hn5z9qszdxegtfbanutuc" target="_blank"
+            rel="noopener" class="nav-nft-btn-mobile">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+            DAWN Official NFT
+          </a>
+        </li>
+      </ul>
+      <div class="nav-right">
+        <a href="https://magiceden.io/marketplace/gc9syubdmyfrulfbtbv2ke1hn5z9qszdxegtfbanutuc" target="_blank"
+          rel="noopener" class="nft-btn">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+          </svg>
+          DAWN Official NFT
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO / SEARCH -->
+  <section id="hero">
+    <div class="hero-eyebrow">
+      <span class="dot"></span>
+      Live Tracker — DAWN Community
+    </div>
+    <h1 class="hero-title">
+      Track Your<br>
+      <span class="orange">Sunrays</span>
+    </h1>
+    <p class="hero-sub">Search your Discord username to see your total sunrays, global rank, tier, and activity
+      breakdown across the DAWN ecosystem.</p>
+
+    <a href="https://x.com/Bunnyyxtan" target="_blank" rel="noopener noreferrer" class="hero-creator">
+      <svg class="hero-creator-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+        <path d="M2 2l7.586 7.586"/>
+        <circle cx="11" cy="11" r="2"/>
+      </svg>
+      <span class="hero-creator-label">Built by</span>
+      <span class="hero-creator-name">Bunnyyxtan</span>
+    </a>
+
+    <div class="search-wrapper">
+      <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round">
+        <circle cx="11" cy="11" r="8" />
+        <path d="M21 21l-4.35-4.35" />
+      </svg>
+      <input type="text" id="searchInput" class="search-box" placeholder="Enter your Discord username..."
+        autocomplete="off" spellcheck="false">
+      <button class="search-clear" id="searchClear" onclick="clearSearch()">&times;</button>
+      <div class="autocomplete-list" id="acList"></div>
+    </div>
+
+    <div id="resultCard" class="result-card"></div>
+    <div id="noResult" class="no-result">
+      <div class="no-result-icon">🌑</div>
+      <div style="font-weight:600;margin-bottom:4px">User not found</div>
+      <div style="font-size:13px;color:var(--muted)">Check your Discord username and try again</div>
+    </div>
+
+    <div class="hero-stats">
+      <div class="hs-item">
+        <div class="hs-val mono" id="statTotal">—</div>
+        <div class="hs-lbl">Sunrays Collector</div>
+      </div>
+      <div class="hs-item">
+        <div class="hs-val mono" id="statMaxRays">—</div>
+        <div class="hs-lbl">Max Sunrays Earned</div>
+      </div>
+      <div class="hs-item">
+        <div class="hs-val mono" id="statNFT">—</div>
+        <div class="hs-lbl">NFT Tier Holders</div>
+      </div>
+      <div class="hs-item">
+        <div class="hs-val mono" id="statWeeks">—</div>
+        <div class="hs-lbl">Ceremony Weeks</div>
+      </div>
+    </div>
+
+    <div class="live-sync-indicator" id="liveSyncIndicator" title="Data is fetched live from DAWN official Google Sheets">
+      <span class="live-sync-dot"></span>
+      <span class="live-sync-text">Live synced with official data</span>
+      <span class="live-sync-sep">·</span>
+      <span class="live-sync-time" id="liveSyncTime">Last updated: just now</span>
+    </div>
+  </section>
+
+  <!-- GLOBAL LEADERBOARD -->
+  <section id="leaderboard">
+    <div class="container">
+      <div class="section-head">
+        <div>
+          <div class="section-tag">Rankings</div>
+          <h2 class="section-title">Global Leaderboard</h2>
+          <p class="section-sub">All community members ranked by total sunrays earned across all ceremonies.</p>
+        </div>
+      </div>
+
+      <div class="lb-table-wrapper">
+        <div class="lb-header">
+          <span>#</span>
+          <span>Member</span>
+          <span>Tier</span>
+          <span>Sunrays ☀️</span>
+        </div>
+        <div id="lbBody">
+          <div class="loader">
+            <div class="spinner"></div> Loading leaderboard...
+          </div>
+        </div>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </section>
+
+  <!-- TIER DISTRIBUTION -->
+  <section id="tiers">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-tag">Tiers</div>
+        <h2 class="section-title">Tier Distribution</h2>
+        <p class="section-sub">Official NFT tiers and their current holder counts across the DAWN community.</p>
+      </div>
+      <div class="tier-carousel-container">
+        <div class="tier-carousel" id="tierCarousel">
+          <div class="loader">
+            <div class="spinner"></div> Loading tiers...
+          </div>
+        </div>
+      </div>
+      <div id="newcomerBanner"></div>
+    </div>
+  </section>
+
+  <!-- WEEKLY WINNERS -->
+  <section id="weekly">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-tag">Weekly</div>
+        <h2 class="section-title">Weekly Winners</h2>
+        <p class="section-sub">Winners from each DAWN Sunrise Ceremony across all event categories.</p>
+      </div>
+      <div class="week-nav">
+        <button class="week-btn" id="prevWeek" onclick="changeWeek(-1)">← Previous</button>
+        <div class="week-label" id="weekLabel">Loading...</div>
+        <button class="week-btn" id="nextWeek" onclick="changeWeek(1)">Next →</button>
+      </div>
+      <div class="week-date-range" id="weekDateRange"></div>
+      <div id="wwContent">
+        <div class="loader">
+          <div class="spinner"></div> Loading weekly data...
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SUNRAYS GUIDE -->
+  <section id="guide">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-tag">Learn</div>
+        <h2 class="section-title">Sunrays Guide</h2>
+        <p class="section-sub">Everything you need to know about sunrays, how to earn them, and how tiers work.</p>
+      </div>
+      <div class="guide-grid">
+        <div class="guide-card">
+          <div class="guide-icon">☀️</div>
+          <div class="guide-title">What are Sunrays?</div>
+          <div class="guide-text">Sunrays are DAWN's community reputation points. They track your participation and
+            contributions across Sunrise Ceremonies, events, games, quizzes, and community activities. Every sunray you
+            earn reflects your dedication to the DAWN ecosystem.</div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-icon">🎯</div>
+          <div class="guide-title">How to Earn</div>
+          <div class="guide-text">Earn sunrays by participating in weekly Sunrise Ceremonies, winning poker tournaments
+            and chess matches, placing in quiz competitions, community MVP recognition, X Signal Sprints, local
+            community events, and various regional activities.</div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-icon">🏆</div>
+          <div class="guide-title">Ranking System</div>
+          <div class="guide-text">Your global rank is determined by your total sunrays compared to all other community
+            members. Rankings are updated in real-time as ceremonies occur. Top ranks reflect the most active and
+            dedicated DAWN community participants.</div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-icon">🃏</div>
+          <div class="guide-title">Tier NFTs</div>
+          <div class="guide-text">Official tiers (Trailblazer through Dawn Ascendant) are NFT-backed status indicators.
+            Reaching a tier threshold qualifies you for the corresponding NFT. Newcomer is a community tier that doesn't
+            have an NFT but marks your first steps.</div>
+        </div>
+      </div>
+
+      <div class="tier-list-guide" style="margin-top:40px">
+        <h3 style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;margin-bottom:20px">Tier Requirements
+        </h3>
+        <div id="tierGuideList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section id="cta">
+    <div class="container" style="text-align:center">
+      <div class="section-tag" style="justify-content:center;display:flex">Community</div>
+      <h2 class="section-title">Join the DAWN Movement</h2>
+      <p class="section-sub" style="margin:16px auto 0">Share your sunrays rank with your community and inspire others
+        to participate in Sunrise Ceremonies.</p>
+      <div class="cta-buttons">
+        <a href="https://twitter.com/intent/tweet?text=Checked%20my%20DAWN%20Sunrays%20standing%20%E2%98%80%EF%B8%8F%0A%0ASee%20where%20you%20stand%3A%0Ahttps%3A%2F%2Fdawnrank.xyz%0A%0ABuilt%20by%20%40Bunnyyxtan"
+          target="_blank" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+          </svg>
+          Share on X
+        </a>
+        <a href="https://t.me/share/url?url=https%3A%2F%2Fdawnrank.xyz&text=Checked%20my%20DAWN%20Sunrays%20standing%20%E2%98%80%EF%B8%8F%0A%0ASee%20where%20you%20stand%0A%0ABuilt%20by%20%40Bunnyyxtan"
+          target="_blank" class="btn btn-outline">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z" />
+          </svg>
+          Telegram
+        </a>
+        <a href="https://wa.me/?text=Checked%20my%20DAWN%20Sunrays%20standing%20%E2%98%80%EF%B8%8F%0A%0ASee%20where%20you%20stand%3A%0Ahttps%3A%2F%2Fdawnrank.xyz%0A%0ABuilt%20by%20%40Bunnyyxtan"
+          target="_blank" class="btn btn-outline">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+          </svg>
+          WhatsApp
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <div class="footer-logo">
+            <img id="footerLogo" src="" alt="DAWN">
+            <span>DAWN Sunrays</span>
+          </div>
+          <p class="footer-desc">Community-built tracker for the DAWN ecosystem. Track sunrays, explore tiers, and
+            celebrate weekly winners.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Official Links</h4>
+          <a href="https://www.dawninternet.com/" target="_blank" rel="noopener">DAWN Website</a>
+          <a href="https://x.com/dawninternet" target="_blank" rel="noopener">DAWN on X</a>
+          <a href="https://discord.gg/fd9KD3upGK" target="_blank" rel="noopener">DAWN Discord</a>
+          <a href="https://cdn.prod.website-files.com/665dc8eb8d9f8c4764608070/66c3c22442580dcd5962c723_DAWN%20Whitepaper%20July%2025%2C%202024%20(1).pdf"
+            target="_blank" rel="noopener">Documentation</a>
+        </div>
+        <div class="footer-col">
+          <h4>Community</h4>
+          <a href="https://x.com/Bunnyyxtan" target="_blank" rel="noopener">Created by Bunnyyxtan</a>
+          <a href="#weekly" target="_self">Weekly Winners</a>
+          <a href="#leaderboard" target="_self">Leaderboard</a>
+          <a href="#guide" target="_self">Sunrays Guide</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 DAWN Sunrays Tracker — Community Tool</span>
+        <span>Created by <a href="https://x.com/Bunnyyxtan" target="_blank"
+            style="color:var(--orange);text-decoration:none">Bunnyyxtan</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- PROFILE CARD MODAL -->
+  <div class="card-modal-overlay" id="cardModal" onclick="closeCardModal(event)">
+    <div class="card-modal" onclick="event.stopPropagation()">
+      <div class="card-modal-header">
+        <div class="card-modal-title">Your DAWN Profile Card</div>
+        <button class="card-modal-close" onclick="closeCardModal()">&times;</button>
+      </div>
+      <div class="card-canvas-container">
+        <canvas id="profileCanvas" width="800" height="450"></canvas>
+      </div>
+      <div class="card-modal-actions">
+        <button class="btn btn-primary" onclick="downloadCard()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Download
+        </button>
+        <button class="btn btn-outline" onclick="shareCard()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </svg>
+          Share on X
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIER HOLDERS MODAL -->
+  <div class="tier-holders-overlay" id="tierHoldersModal" onclick="closeTierHoldersModal(event)">
+    <div class="tier-holders-modal" onclick="event.stopPropagation()">
+      <div class="tier-holders-header">
+        <div>
+          <div class="tier-holders-title" id="tierHoldersTitle">Tier Holders</div>
+          <div class="tier-holders-count" id="tierHoldersCount"></div>
+        </div>
+        <button class="tier-holders-close" onclick="closeTierHoldersModal()">&times;</button>
+      </div>
+      <div class="tier-holders-list" id="tierHoldersList"></div>
+    </div>
+  </div>
+
+  <!-- VERIFY ACTIVITY MODAL -->
+  <div class="verify-modal-overlay" id="verifyModal" onclick="closeVerifyModal(event)">
+    <div class="verify-modal" onclick="event.stopPropagation()">
+      <div class="verify-modal-header">
+        <div>
+          <div class="verify-modal-title">Verify Your Activity on Official Records</div>
+          <div class="verify-modal-sub">Cross-check each event directly from DAWN's official leaderboard</div>
+        </div>
+        <button class="verify-modal-close" onclick="closeVerifyModal()">&times;</button>
+      </div>
+      <div class="verify-event-list" id="verifyEventList"></div>
+      <div class="verify-modal-tip">
+        💡 <strong>Tip:</strong> Desktop users can use <kbd>Ctrl + F</kbd> to search their username in the sheet. On
+        mobile, use the browser menu (⋮) → 'Find in page' to quickly locate your name.
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/app.js"></script>
+</body>
+
+</html>
